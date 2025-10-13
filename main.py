@@ -4,6 +4,7 @@ import os
 import time
 from multiprocessing import Process, Queue
 from queue import Empty
+from typing import Any, Dict, List
 
 import mss
 import mss.tools
@@ -129,7 +130,7 @@ class ScreenRecording:
         for p_save in self._p_saves:
             p_save.start()
 
-    def stop(self) -> None:
+    def stop(self) -> List[Dict[str, Any]]:
         """Stop the screen recording."""
         if self._p_grab is not None:
             self._p_grab.join()
@@ -140,21 +141,23 @@ class ScreenRecording:
         # Close the queues
         for queue in self._list_queues:
             queue.close()
-        self._print_results()
+        return self._print_results()
 
-    def _print_results(self, verbose: bool = False) -> None:
-        """Print performance of the screen recording."""
+    def _print_results(self, verbose: bool = False) -> List[Dict[str, Any]]:
+        """Print performance of the screen recording. Return the logs."""
         grab_fps = 0
         grab_time = None
         total_save_fps = 0
         total_save_time = 0
         log_caught = 0
+        all_logs = []
         while log_caught < self.n_processes + 1:
             try:
                 log = self._out_queue.get(timeout=10)
                 log_caught += 1
                 if log["log"] == "grabbing":
                     grab_fps = log["fps"]
+                    all_logs.append(log)
                     if grab_time is None:
                         grab_time = log["time"]
                     else:
@@ -166,6 +169,7 @@ class ScreenRecording:
                         print(f"Saving FPS: {log['fps']} for process {log['id']}")
                     total_save_fps += log["fps"]
                     total_save_time += log["time"]
+                    all_logs.append(log)
                 else:
                     raise ValueError(f"Unknown log: {log}")
             except Empty as esc:
@@ -177,6 +181,7 @@ class ScreenRecording:
         print(f"Total saving FPS: {total_save_fps}")
         print(f"Total grab time: {grab_time}")
         print(f"Total save time: {total_save_time}")
+        return all_logs
 
 
 if __name__ == "__main__":
