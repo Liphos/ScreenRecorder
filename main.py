@@ -180,7 +180,7 @@ class ScreenRecording:
         print(f"Grabbing FPS: {grab_fps}")
         print(f"Total saving FPS: {total_save_fps}")
         print(f"Total grab time: {grab_time}")
-        print(f"Total save time: {total_save_time}")
+        print(f"Total save time: {total_save_time/self.n_processes}")
         return all_logs
 
 
