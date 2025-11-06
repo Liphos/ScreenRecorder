@@ -12,6 +12,7 @@ import mss.tools
 
 def _grab(queues: list[Queue], _out_queue: Queue, aimed_fps: int, number: int) -> None:
     sct = mss.mss()
+    all_timestamps = []
     monitor_id = 1
     rect = {
         "top": sct.monitors[monitor_id]["top"],
@@ -25,6 +26,7 @@ def _grab(queues: list[Queue], _out_queue: Queue, aimed_fps: int, number: int) -
     for i in range(number):
         queue = queues[i % len(queues)]
         queue.put(sct.grab(rect))
+        all_timestamps.append(time.time())
         time.sleep(max(0, 1 / aimed_fps - (time.perf_counter() - grab_time)))
         max_stable_fps = min(max_stable_fps, int(1 / (time.perf_counter() - grab_time)))
         grab_time = time.perf_counter()
@@ -37,6 +39,7 @@ def _grab(queues: list[Queue], _out_queue: Queue, aimed_fps: int, number: int) -
         "fps": number / (time.time() - start_time),
         "time": time.time() - start_time,
         "max_stable_fps": max_stable_fps,
+        "timestamps": all_timestamps,
     }
     _out_queue.put(out_log)
 
@@ -148,9 +151,16 @@ class ScreenRecording:
         for queue in self._list_queues:
             queue.close()
         grab_log, saving_logs = self._get_logs()
+        self._save_timestamps(grab_log)
         if self.print_results:
             self._print_results(grab_log, saving_logs)
         return grab_log, saving_logs
+
+    def _save_timestamps(self, grab_log: Dict[str, Any]) -> None:
+        """Save the timestamps of the screen recording to a file."""
+        with open(self.path_output + "timestamps.txt", "w", encoding="utf-8") as f:
+            for timestamp in grab_log["timestamps"]:
+                f.write(f"{timestamp:.6f}\n")
 
     def _get_logs(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         log_caught = 0
