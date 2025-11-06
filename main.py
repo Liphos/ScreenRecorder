@@ -136,7 +136,7 @@ class ScreenRecording:
         for p_save in self._p_saves:
             p_save.start()
 
-    def stop(self) -> List[Dict[str, Any]]:
+    def stop(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """Stop the screen recording."""
         if self._p_grab is not None:
             self._p_grab.join()
@@ -147,48 +147,42 @@ class ScreenRecording:
         # Close the queues
         for queue in self._list_queues:
             queue.close()
-        logs = self._get_logs()
+        grab_log, saving_logs = self._get_logs()
         if self.print_results:
-            self._print_results(logs)
-        return logs
+            self._print_results(grab_log, saving_logs)
+        return grab_log, saving_logs
 
-    def _get_logs(self) -> List[Dict[str, Any]]:
+    def _get_logs(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         log_caught = 0
-        all_logs = []
-        found_grab_log = False
+        saving_logs: List[Dict[str, Any]] = []
+        grab_log: Dict[str, Any] = {}
         while log_caught < self.n_processes + 1:
             try:
                 log = self._out_queue.get(timeout=10)
                 log_caught += 1
                 if log["log"] == "grabbing":
-                    all_logs.append(log)
+                    grab_log = log
                     assert (
-                        not found_grab_log
+                        grab_log != {}
                     ), "Multiple grabbing logs means multiple screen recording processes. Only one is expected."
-                    found_grab_log = True
                 elif log["log"] == "saving":
-                    all_logs.append(log)
+                    saving_logs.append(log)
                 else:
                     raise ValueError(f"Unknown log: {log}")
             except Empty as esc:
                 raise Empty(
                     "Log queue not containing all logs. It is possible one process failed."
                 ) from esc
-        return all_logs
+        return (grab_log, saving_logs)
 
-    def _print_results(self, logs: List[Dict[str, Any]]) -> None:
+    def _print_results(
+        self, grab_log: Dict[str, Any], saving_logs: List[Dict[str, Any]]
+    ) -> None:
         """Print performance of the screen recording. Return the logs."""
-        grab_fps = -1
-        grab_time = None
-        lst_save_fps = []
-        lst_save_time = []
-        for log in logs:
-            if log["log"] == "grabbing":
-                grab_fps = round(log["fps"], 2)
-                grab_time = round(log["time"], 2)
-            elif log["log"] == "saving":
-                lst_save_fps.append(round(log["fps"] * self.n_processes, 2))
-                lst_save_time.append(round(log["time"], 2))
+        grab_fps = round(grab_log["fps"], 2)
+        grab_time = round(grab_log["time"], 2)
+        lst_save_fps = [round(log["fps"] * self.n_processes, 2) for log in saving_logs]
+        lst_save_time = [round(log["time"], 2) for log in saving_logs]
         print("-" * 100)
         print(f"Process grab FPS: {grab_fps}")
         print(f"Processes saving FPS: {lst_save_fps}")

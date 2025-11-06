@@ -25,29 +25,22 @@ def main(max_processes: int = 4, max_fps: int = 60, verbose: bool = False) -> No
             )
             screen_recorder.start()
             # Stop the screen recording
-            logs = screen_recorder.stop()
+            grab_log, saving_logs = screen_recorder.stop()
             # Check if the config is safe
-            grab_time = None
-            save_times = []
-            max_stable_fps = 0
             is_unsafe = False
-            for log in logs:
-                if log["log"] == "grabbing":
-                    grab_time = log["time"]
-                    max_stable_fps = log["max_stable_fps"]
-                    mean_fps = log["fps"]
-                    if mean_fps < 0.9 * aimed_fps:
-                        # Config is unsafe
-                        is_unsafe = True
-                        if verbose:
-                            print(
-                                f"Can't record screen at {aimed_fps}, current FPS: {mean_fps}"
-                            )
-                        break
-                elif log["log"] == "saving":
-                    save_times.append(log["time"])
-            if grab_time is None:
-                raise ValueError("Grabbing log has not been found.")
+            # For grabbing
+            grab_time = grab_log["time"]
+            max_stable_fps = grab_log["max_stable_fps"]
+            mean_fps = grab_log["fps"]
+            if mean_fps < 0.9 * aimed_fps:
+                # Config is unsafe
+                is_unsafe = True
+                if verbose:
+                    print(
+                        f"Can't record screen at {aimed_fps}, current FPS: {mean_fps}"
+                    )
+            # For saving
+            save_times = [log["time"] for log in saving_logs]
             for save_time in save_times:
                 if save_time > grab_time + 1:
                     # Config is unsafe
@@ -56,7 +49,6 @@ def main(max_processes: int = 4, max_fps: int = 60, verbose: bool = False) -> No
                         print(
                             f"Save time: {save_time} is more than 1 second longer than screenshot time {grab_time}"
                         )
-                    break
             if not is_unsafe:
                 if verbose:
                     print(f"Most stable FPS: {max_stable_fps}")
@@ -65,6 +57,7 @@ def main(max_processes: int = 4, max_fps: int = 60, verbose: bool = False) -> No
                     print("-" * 100)
                 best_fps.append(mean_fps)
                 most_stable_fps.append(max_stable_fps)
+                break
             # Decrease the fps to current cap or lower
             aimed_fps = min(round(mean_fps / 10) * 10, aimed_fps - 10)
     print("-" * 100)
@@ -78,4 +71,4 @@ def main(max_processes: int = 4, max_fps: int = 60, verbose: bool = False) -> No
 
 
 if __name__ == "__main__":
-    main()
+    main(verbose=True)
