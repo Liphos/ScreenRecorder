@@ -1,0 +1,75 @@
+"""Return suggested FPS and config for the screen recording."""
+
+from main import ScreenRecording
+
+PATH_OUTPUT = "./screenshots/temp/"
+
+
+def main(max_processes: int = 4, max_fps: int = 60, verbose: bool = False) -> None:
+    """Return suggested FPS and config for the screen recording."""
+    best_fps = []
+    most_stable_fps = []
+    for n_processes in range(1, max_processes + 1):
+        aimed_fps = max_fps
+        while aimed_fps >= 10:
+            if verbose:
+                print(f"Testing {n_processes} processes and {aimed_fps} FPS...")
+            # Start the screen recording
+            screen_recorder = ScreenRecording(
+                path_output=PATH_OUTPUT, n_processes=n_processes, aimed_fps=aimed_fps
+            )
+            screen_recorder.start()
+            # Stop the screen recording
+            logs = screen_recorder.stop()
+            # Check if the config is safe
+            grab_time = None
+            save_times = []
+            max_stable_fps = 0
+            is_unsafe = False
+            for log in logs:
+                if log["log"] == "grabbing":
+                    grab_time = log["time"]
+                    max_stable_fps = log["max_stable_fps"]
+                    mean_fps = log["fps"]
+                    if mean_fps < 0.9 * aimed_fps:
+                        # Config is unsafe
+                        is_unsafe = True
+                        if verbose:
+                            print(
+                                f"Can't record screen at {aimed_fps}, current FPS: {mean_fps}"
+                            )
+                        break
+                elif log["log"] == "saving":
+                    save_times.append(log["time"])
+            if grab_time is None:
+                raise ValueError("Grabbing log has not been found.")
+            for save_time in save_times:
+                if save_time > grab_time + 1:
+                    # Config is unsafe
+                    is_unsafe = True
+                    if verbose:
+                        print(
+                            f"Save time: {save_time} is more than 1 second longer than screenshot time {grab_time}"
+                        )
+                    break
+            if not is_unsafe:
+                print(f"Most stable FPS: {max_stable_fps}")
+                print(f"Mean FPS: {mean_fps}")
+                print(f"Suggested number of processes: {n_processes}")
+                print("-" * 100)
+                best_fps.append(mean_fps)
+                most_stable_fps.append(max_stable_fps)
+            # Decrease the fps to current cap or lower
+            aimed_fps = min(round(mean_fps / 10) * 10, aimed_fps - 10)
+    print("-" * 100)
+    print("Best config:")
+    print(f"Processes: {sorted(enumerate(most_stable_fps), key=lambda x: x[1])[-1][0]}")
+    print(f"Aimed FPS: {sorted(enumerate(best_fps), key=lambda x: x[1])[-1][1]}")
+    print(
+        f"Most stable FPS: {sorted(enumerate(most_stable_fps), key=lambda x: x[1])[-1][1]}"
+    )
+    print("-" * 100)
+
+
+if __name__ == "__main__":
+    main(verbose=True)

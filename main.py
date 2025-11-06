@@ -21,10 +21,12 @@ def _grab(queues: list[Queue], _out_queue: Queue, aimed_fps: int, number: int) -
     }
     start_time = time.time()
     grab_time = time.perf_counter()
+    max_stable_fps = 10_000
     for i in range(number):
         queue = queues[i % len(queues)]
         queue.put(sct.grab(rect))
         time.sleep(max(0, 1 / aimed_fps - (time.perf_counter() - grab_time)))
+        max_stable_fps = min(max_stable_fps, int(1 / (time.perf_counter() - grab_time)))
         grab_time = time.perf_counter()
 
     # Tell the other worker to stop
@@ -34,6 +36,7 @@ def _grab(queues: list[Queue], _out_queue: Queue, aimed_fps: int, number: int) -
         "log": "grabbing",
         "fps": number / (time.time() - start_time),
         "time": time.time() - start_time,
+        "max_stable_fps": max_stable_fps,
     }
     _out_queue.put(out_log)
 
