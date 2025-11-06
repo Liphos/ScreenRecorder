@@ -83,6 +83,7 @@ class ScreenRecording:
         n_processes: int = 2,
         aimed_fps: int = 10,
         compression_rate: int = 6,
+        print_results: bool = True,
     ) -> None:
         """Initialize the screen recording.
 
@@ -90,12 +91,14 @@ class ScreenRecording:
             n_processes (int): Number of processes to use for saving the screenshots. For high compression rate, it is recommended to use more processes. You can use measure_fps to adjust.
             aimed_fps (int): Aimed FPS for the screen recording. Lower this value when the tool fails to screenshot at the desired FPS.
             compression_rate (int, optional): Compression rate for the screenshots. Higher values means smaller files and longer saving time. Defaults to 6.
+            print_results (bool, optional): Print the performance of the screen recording. Defaults to True.
         """
         # Save parameters
         self.path_output = path_output
         self.n_processes = n_processes
         self.aimed_fps = aimed_fps
         self.compression_rate = compression_rate
+        self.print_results = print_results
         # Queues
         self._list_queues: list[Queue] = [Queue() for _ in range(n_processes)]
         self._out_queue: Queue = Queue()
@@ -144,34 +147,26 @@ class ScreenRecording:
         # Close the queues
         for queue in self._list_queues:
             queue.close()
-        return self._print_results()
+        logs = self._get_logs()
+        if self.print_results:
+            self._print_results(logs)
+        return logs
 
-    def _print_results(self, verbose: bool = False) -> List[Dict[str, Any]]:
-        """Print performance of the screen recording. Return the logs."""
-        grab_fps = 0
-        grab_time = None
-        total_save_fps = 0
-        total_save_time = 0
+    def _get_logs(self) -> List[Dict[str, Any]]:
         log_caught = 0
         all_logs = []
+        found_grab_log = False
         while log_caught < self.n_processes + 1:
             try:
                 log = self._out_queue.get(timeout=10)
                 log_caught += 1
                 if log["log"] == "grabbing":
-                    grab_fps = log["fps"]
                     all_logs.append(log)
-                    if grab_time is None:
-                        grab_time = log["time"]
-                    else:
-                        raise RuntimeError(
-                            "Multiple grabbing logs. Only one is expected."
-                        )
+                    assert (
+                        not found_grab_log
+                    ), "Multiple grabbing logs means multiple screen recording processes. Only one is expected."
+                    found_grab_log = True
                 elif log["log"] == "saving":
-                    if verbose:
-                        print(f"Saving FPS: {log['fps']} for process {log['id']}")
-                    total_save_fps += log["fps"]
-                    total_save_time += log["time"]
                     all_logs.append(log)
                 else:
                     raise ValueError(f"Unknown log: {log}")
@@ -179,12 +174,26 @@ class ScreenRecording:
                 raise Empty(
                     "Log queue not containing all logs. It is possible one process failed."
                 ) from esc
-        print("-" * 100)
-        print(f"Grabbing FPS: {grab_fps}")
-        print(f"Total saving FPS: {total_save_fps}")
-        print(f"Total grab time: {grab_time}")
-        print(f"Total save time: {total_save_time/self.n_processes}")
         return all_logs
+
+    def _print_results(self, logs: List[Dict[str, Any]]) -> None:
+        """Print performance of the screen recording. Return the logs."""
+        grab_fps = -1
+        grab_time = None
+        lst_save_fps = []
+        lst_save_time = []
+        for log in logs:
+            if log["log"] == "grabbing":
+                grab_fps = round(log["fps"], 2)
+                grab_time = round(log["time"], 2)
+            elif log["log"] == "saving":
+                lst_save_fps.append(round(log["fps"] * self.n_processes, 2))
+                lst_save_time.append(round(log["time"], 2))
+        print("-" * 100)
+        print(f"Process grab FPS: {grab_fps}")
+        print(f"Processes saving FPS: {lst_save_fps}")
+        print(f"Process grab time: {grab_time}")
+        print(f"Processes save time: {lst_save_time}")
 
 
 if __name__ == "__main__":

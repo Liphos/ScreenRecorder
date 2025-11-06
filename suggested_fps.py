@@ -1,5 +1,7 @@
 """Return suggested FPS and config for the screen recording."""
 
+from tqdm import tqdm
+
 from main import ScreenRecording
 
 PATH_OUTPUT = "./screenshots/temp/"
@@ -9,14 +11,17 @@ def main(max_processes: int = 4, max_fps: int = 60, verbose: bool = False) -> No
     """Return suggested FPS and config for the screen recording."""
     best_fps = []
     most_stable_fps = []
-    for n_processes in range(1, max_processes + 1):
+    for n_processes in tqdm(range(1, max_processes + 1)):
         aimed_fps = max_fps
         while aimed_fps >= 10:
             if verbose:
                 print(f"Testing {n_processes} processes and {aimed_fps} FPS...")
             # Start the screen recording
             screen_recorder = ScreenRecording(
-                path_output=PATH_OUTPUT, n_processes=n_processes, aimed_fps=aimed_fps
+                path_output=PATH_OUTPUT,
+                n_processes=n_processes,
+                aimed_fps=aimed_fps,
+                print_results=verbose,
             )
             screen_recorder.start()
             # Stop the screen recording
@@ -53,10 +58,11 @@ def main(max_processes: int = 4, max_fps: int = 60, verbose: bool = False) -> No
                         )
                     break
             if not is_unsafe:
-                print(f"Most stable FPS: {max_stable_fps}")
-                print(f"Mean FPS: {mean_fps}")
-                print(f"Suggested number of processes: {n_processes}")
-                print("-" * 100)
+                if verbose:
+                    print(f"Most stable FPS: {max_stable_fps}")
+                    print(f"Mean FPS: {mean_fps}")
+                    print(f"Suggested number of processes: {n_processes}")
+                    print("-" * 100)
                 best_fps.append(mean_fps)
                 most_stable_fps.append(max_stable_fps)
             # Decrease the fps to current cap or lower
@@ -72,4 +78,4 @@ def main(max_processes: int = 4, max_fps: int = 60, verbose: bool = False) -> No
 
 
 if __name__ == "__main__":
-    main(verbose=True)
+    main()
