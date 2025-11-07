@@ -18,10 +18,10 @@ def main(max_processes: int = 4, max_fps: int = 60, verbose: bool = False) -> No
                 print(f"Testing {n_processes} processes and {aimed_fps} FPS...")
             # Start the screen recording
             screen_recorder = ScreenRecording(
-                path_output=PATH_OUTPUT,
-                n_processes=n_processes,
-                aimed_fps=aimed_fps,
-                print_results=verbose,
+                n_processes=n_processes, aimed_fps=aimed_fps, compression_rate=6
+            )
+            screen_recorder.set_common_parameters(
+                path_output=PATH_OUTPUT, print_results=verbose
             )
             screen_recorder.start()
             # Stop the screen recording

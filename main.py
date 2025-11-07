@@ -2,9 +2,10 @@
 
 import os
 import time
+from abc import ABC, abstractmethod
 from multiprocessing import Process, Queue
 from queue import Empty
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import mss
 import mss.tools
@@ -77,16 +78,35 @@ def _save(
     _out_queue.put(out_log)
 
 
-class ScreenRecording:
+class Recorder(ABC):
+    """Abstract class for all recorders."""
+
+    def __init__(self) -> None:
+        self.path_output: str
+        self.print_results: bool
+
+    def set_common_parameters(self, path_output: str, print_results: bool) -> None:
+        """Set parameters common to all recorders."""
+        self.path_output = path_output
+        self.print_results = print_results
+
+    @abstractmethod
+    def start(self) -> None:
+        pass
+
+    @abstractmethod
+    def stop(self) -> Any:
+        pass
+
+
+class ScreenRecording(Recorder):
     """Screen Recording class. It captures the screen and saves the screenshots to the disk with multiprocessing."""
 
     def __init__(
         self,
-        path_output: str = "./screenshots/",
         n_processes: int = 2,
         aimed_fps: int = 10,
         compression_rate: int = 6,
-        print_results: bool = True,
     ) -> None:
         """Initialize the screen recording.
 
@@ -94,16 +114,12 @@ class ScreenRecording:
             n_processes (int): Number of processes to use for saving the screenshots. For high compression rate, it is recommended to use more processes. You can use measure_fps to adjust.
             aimed_fps (int): Aimed FPS for the screen recording. Lower this value when the tool fails to screenshot at the desired FPS.
             compression_rate (int, optional): Compression rate for the screenshots. Higher values means smaller files and longer saving time. Defaults to 6.
-            print_results (bool, optional): Print the performance of the screen recording. Defaults to True.
         """
-        # Save parameters
-        self.path_output = (
-            path_output + time.strftime("%Y-%m-%d_%H-%M-%S") + "/"
-        )  # Create a subdirectory with the current date and time
+
+        super().__init__()
         self.n_processes = n_processes
         self.aimed_fps = aimed_fps
         self.compression_rate = compression_rate
-        self.print_results = print_results
         # Queues
         self._list_queues: list[Queue] = [Queue() for _ in range(n_processes)]
         self._out_queue: Queue = Queue()
@@ -111,9 +127,6 @@ class ScreenRecording:
         # Processes
         self._p_grab: Process | None = None
         self._p_saves: list[Process] = []
-
-        # Create the output directory
-        os.makedirs(self.path_output, exist_ok=True)
 
     def start(self) -> None:
         """Start the screen recording."""
@@ -202,11 +215,50 @@ class ScreenRecording:
         print(f"Processes save time: {lst_save_time}")
 
 
+
+class Manager:
+    """Manager class. It manages the different recorders and saves the data to the disk."""
+
+    def __init__(
+        self,
+        list_recorders: list[Recorder],
+        path_output: str = "./screenshots/",
+        print_results: bool = True,
+    ) -> None:
+        """Initialize the manager and recorders.
+
+        Args:
+            list_recorders (list[Recorder]): List of recorders to manage.
+            path_output (str, optional): Directory to save screenshots and data. Defaults to "./screenshots/".
+            print_results (bool, optional): Print the performance of the screen recording. Defaults to True.
+        """
+
+        # Save parameters
+        self.path_output = (
+            path_output + time.strftime("%Y-%m-%d_%H-%M-%S") + "/"
+        )  # Create a subdirectory with the current date and time
+        self.print_results = print_results
+        self.list_recorders = list_recorders
+        # Create the output directory
+        os.makedirs(self.path_output, exist_ok=True)
+        # Set parameters common to all recorders
+        for recorder in list_recorders:
+            recorder.set_common_parameters(self.path_output, self.print_results)
+
+    def start(self) -> None:
+        for recorder in self.list_recorders:
+            recorder.start()
+
+    def stop(self) -> Any:
+        for recorder in self.list_recorders:
+            recorder.stop()
+
+
 if __name__ == "__main__":
     # Start the screen recording
-    screen_recorder = ScreenRecording(
-        path_output="./screenshots/", n_processes=3, aimed_fps=10
+    manager = Manager(
+        [ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6)]
     )
-    screen_recorder.start()
+    manager.start()
     # Stop the screen recording
-    screen_recorder.stop()
+    manager.stop()
