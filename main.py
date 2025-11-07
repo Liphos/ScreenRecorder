@@ -97,7 +97,9 @@ class ScreenRecording:
             print_results (bool, optional): Print the performance of the screen recording. Defaults to True.
         """
         # Save parameters
-        self.path_output = path_output
+        self.path_output = (
+            path_output + time.strftime("%Y-%m-%d_%H-%M-%S") + "/"
+        )  # Create a subdirectory with the current date and time
         self.n_processes = n_processes
         self.aimed_fps = aimed_fps
         self.compression_rate = compression_rate
