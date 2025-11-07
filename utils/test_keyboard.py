@@ -5,20 +5,23 @@ from pynput import keyboard
 keys_pressed: set[keyboard.Key] = set()
 
 
-def on_press(key):
-    print("Pressed", key)
+def on_press(key: keyboard.KeyCode | keyboard.Key):
+    if isinstance(key, keyboard.KeyCode):
+        print("Pressed", key.char)
+    else:
+        print("Pressed", key.name)
     keys_pressed.add(key)
-    if (
-        keyboard.Key.ctrl_l in keys_pressed
-        and keyboard.Key.shift in keys_pressed
-        and keyboard.Key.esc in keys_pressed
-    ):
+    if keyboard.Key.shift in keys_pressed and keyboard.Key.esc in keys_pressed:
         return False
 
 
-def on_release(key):
-    print("Released", key)
-    keys_pressed.remove(key)
+def on_release(key: keyboard.KeyCode | keyboard.Key):
+    if isinstance(key, keyboard.KeyCode):
+        print("Released", key.char)
+    else:
+        print("Released", key.name)
+    if key in keys_pressed:
+        keys_pressed.remove(key)
 
 
 if __name__ == "__main__":

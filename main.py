@@ -1,5 +1,6 @@
 """Record the screen, mouse, keyboard and controller inputs with multiprocessing."""
 
+import json
 import os
 import time
 from abc import ABC, abstractmethod
@@ -9,6 +10,7 @@ from typing import Any, Dict, List, Optional
 
 import mss
 import mss.tools
+from pynput import keyboard, mouse
 
 
 def _grab(queues: list[Queue], _out_queue: Queue, aimed_fps: int, number: int) -> None:
@@ -215,6 +217,81 @@ class ScreenRecording(Recorder):
         print(f"Processes save time: {lst_save_time}")
 
 
+class InputRecording(Recorder):
+    def on_press(self, key: keyboard.KeyCode | keyboard.Key):
+        self._action_logs.append(
+            {
+                "timestamp": time.time(),
+                "type": "pressed",
+                "key": key.char if isinstance(key, keyboard.KeyCode) else key.name,
+            }
+        )
+
+    def on_release(self, key: keyboard.KeyCode | keyboard.Key):
+        self._action_logs.append(
+            {
+                "timestamp": time.time(),
+                "type": "release",
+                "key": key.char if isinstance(key, keyboard.KeyCode) else key.name,
+            }
+        )
+
+    def on_move(self, x: int, y: int):
+        self._action_logs.append(
+            {"timestamp": time.time(), "type": "move", "x": x, "y": y}
+        )
+
+    def on_click(self, x: int, y: int, button: mouse.Button, pressed: bool):
+        self._action_logs.append(
+            {
+                "timestamp": time.time(),
+                "type": "click",
+                "x": x,
+                "y": y,
+                "button": button.name,
+                "is_pressed": pressed,
+            }
+        )
+
+    def on_scroll(self, x: int, y: int, dx: int, dy: int):
+        self._action_logs.append(
+            {
+                "timestamp": time.time(),
+                "type": "scroll",
+                "x": x,
+                "y": y,
+                "dx": dx,
+                "dy": dy,
+            }
+        )
+
+    def __init__(self) -> None:
+        # Define variables and create word file
+        super().__init__()
+        self._action_logs: List[Dict[str, Any]] = []
+        self.keyboard_listener = keyboard.Listener(
+            on_press=self.on_press, on_release=self.on_release
+        )
+        self.mouse_listener = mouse.Listener(
+            on_move=self.on_move, on_click=self.on_click, on_scroll=self.on_scroll
+        )
+
+    def start(self) -> None:
+        # Start the keyboard recording
+        self.keyboard_listener.start()
+        self.mouse_listener.start()
+
+    def stop(self) -> None:
+        # Stop the keyboard recording
+        # Dump the action logs to a file
+        self.keyboard_listener.stop()
+        self.mouse_listener.stop()
+        # Join the listeners
+        self.keyboard_listener.join()
+        self.mouse_listener.join()
+        with open(self.path_output + "action_logs.json", "w", encoding="utf-8") as f:
+            json.dump(self._action_logs, f)
+
 
 class Manager:
     """Manager class. It manages the different recorders and saves the data to the disk."""
@@ -257,7 +334,10 @@ class Manager:
 if __name__ == "__main__":
     # Start the screen recording
     manager = Manager(
-        [ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6)]
+        [
+            ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6),
+            InputRecording(),
+        ]
     )
     manager.start()
     # Stop the screen recording
