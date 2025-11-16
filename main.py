@@ -1,10 +1,11 @@
 """Record the screen, mouse, keyboard and controller inputs with multiprocessing."""
 
+import ctypes
 import json
 import os
 import time
 from abc import ABC, abstractmethod
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Value
 from queue import Empty
 from typing import Any, Dict, List, Optional
 
@@ -13,7 +14,22 @@ import mss.tools
 from pynput import keyboard, mouse
 
 
-def _grab(queues: list[Queue], _out_queue: Queue, aimed_fps: int, number: int) -> None:
+def _grab(
+    queues: list[Queue],
+    _out_queue: Queue,
+    stop_flag: ctypes.c_bool,
+    aimed_fps: int,
+    max_screenshots: int = 100_000,
+) -> None:
+    """Process that take screenshots at desired FPS and send them to the queues.
+
+    Args:
+        queues (list[Queue]): Queues to send the screenshots to give to the saving processes.
+        _out_queue (Queue): Queue to send the logs to at the end.
+        stop_flag (ctypes.c_bool): Flag to stop the process from the main process.
+        aimed_fps (int): Desired FPS for the screenshots.
+        max_screenshots (int, optional): Maximum number of screenshots before stopping. Defaults to 100_000.
+    """
     sct = mss.mss()
     all_timestamps = []
     monitor_id = 1
@@ -26,7 +42,9 @@ def _grab(queues: list[Queue], _out_queue: Queue, aimed_fps: int, number: int) -
     start_time = time.time()
     grab_time = time.perf_counter()
     max_stable_fps = 10_000
-    for i in range(number):
+    for i in range(max_screenshots):
+        if stop_flag.value:
+            break
         queue = queues[i % len(queues)]
         queue.put(sct.grab(rect))
         all_timestamps.append(time.time())
@@ -39,7 +57,7 @@ def _grab(queues: list[Queue], _out_queue: Queue, aimed_fps: int, number: int) -
         queue.put(None)
     out_log = {
         "log": "grabbing",
-        "fps": number / (time.time() - start_time),
+        "fps": len(all_timestamps) / (time.time() - start_time),
         "time": time.time() - start_time,
         "max_stable_fps": max_stable_fps,
         "timestamps": all_timestamps,
@@ -86,6 +104,7 @@ class Recorder(ABC):
     def __init__(self) -> None:
         self.path_output: str
         self.print_results: bool
+        self.is_stopped: bool = False
 
     def set_common_parameters(self, path_output: str, print_results: bool) -> None:
         """Set parameters common to all recorders."""
@@ -97,8 +116,16 @@ class Recorder(ABC):
         pass
 
     @abstractmethod
-    def join(self) -> Any:
+    def stop(self) -> None:
+        self.is_stopped = True
+
+    @abstractmethod
+    def should_stop(self) -> bool:
         pass
+
+    @abstractmethod
+    def join(self) -> Any:
+        assert self.is_stopped, "Recorder is not stopped. Call stop() first."
 
 
 class ScreenRecording(Recorder):
@@ -109,6 +136,7 @@ class ScreenRecording(Recorder):
         n_processes: int = 2,
         aimed_fps: int = 10,
         compression_rate: int = 6,
+        max_screenshots: int = 100_000,
     ) -> None:
         """Initialize the screen recording.
 
@@ -116,15 +144,18 @@ class ScreenRecording(Recorder):
             n_processes (int): Number of processes to use for saving the screenshots. For high compression rate, it is recommended to use more processes. You can use measure_fps to adjust.
             aimed_fps (int): Aimed FPS for the screen recording. Lower this value when the tool fails to screenshot at the desired FPS.
             compression_rate (int, optional): Compression rate for the screenshots. Higher values means smaller files and longer saving time. Defaults to 6.
+            max_screenshots (int, optional): Option to stop recording after a certain number of screenshots is taken. Defaults to 100_000.
         """
 
         super().__init__()
         self.n_processes = n_processes
         self.aimed_fps = aimed_fps
         self.compression_rate = compression_rate
+        self.max_screenshots = max_screenshots
         # Queues
         self._list_queues: list[Queue] = [Queue() for _ in range(n_processes)]
         self._out_queue: Queue = Queue()
+        self._stop_flag = Value(ctypes.c_bool, False)
 
         # Processes
         self._p_grab: Process | None = None
@@ -137,7 +168,13 @@ class ScreenRecording(Recorder):
         # grabing is in the main process
         self._p_grab = Process(
             target=_grab,
-            args=(self._list_queues, self._out_queue, self.aimed_fps, 600),
+            args=(
+                self._list_queues,
+                self._out_queue,
+                self._stop_flag,
+                self.aimed_fps,
+                self.max_screenshots,
+            ),
         )
         self._p_saves = [
             Process(
@@ -156,6 +193,17 @@ class ScreenRecording(Recorder):
         self._p_grab.start()
         for p_save in self._p_saves:
             p_save.start()
+
+    def should_stop(self) -> bool:
+        """Call to stop if grabbing process has stopped."""
+        assert (
+            self._p_grab is not None
+        ), "Grabbing process has not started. Call start() first."
+        return not self._p_grab.is_alive()
+
+    def stop(self) -> None:
+        """Stop the screen recording."""
+        self._stop_flag.value = True
 
     def join(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """Stop the screen recording."""
@@ -288,12 +336,19 @@ class InputRecording(Recorder):
         self.keyboard_listener.start()
         self.mouse_listener.start()
 
-    def join(self) -> None:
+    def stop(self) -> None:
         # Stop the keyboard recording
-        # Dump the action logs to a file
         self.keyboard_listener.stop()
         self.mouse_listener.stop()
-        # Join the listeners
+
+    def should_stop(self) -> bool:
+        """Call to stop if keyboard or mouse recording has stopped."""
+        return (
+            not self.keyboard_listener.is_alive() or not self.mouse_listener.is_alive()
+        )
+
+    def join(self) -> None:
+        # Dump the action logs to a file
         self.keyboard_listener.join()
         self.mouse_listener.join()
         with open(self.path_output + "action_logs.json", "w", encoding="utf-8") as f:
@@ -328,14 +383,39 @@ class Manager:
         # Set parameters common to all recorders
         for recorder in list_recorders:
             recorder.set_common_parameters(self.path_output, self.print_results)
+        self.is_stopped = False  # Flag to check if stop() has been called
 
     def start(self) -> None:
         for recorder in self.list_recorders:
             recorder.start()
 
+    def stop(self) -> None:
+        for recorder in self.list_recorders:
+            recorder.stop()
+        self.is_stopped = True
+
     def join(self) -> Any:
+        assert self.is_stopped, "Manager is not stopped. Call stop() first."
         for recorder in self.list_recorders:
             recorder.join()
+
+    def run_until_stop(self, timeout: float = 150_000) -> None:
+        """Run the manager until the stop() method is called.
+        Args:
+            timeout (float, optional): Timeout in seconds. Defaults to 150_000.
+        """
+        start_time = time.time()
+        self.start()
+        while time.time() - start_time < timeout:
+            time.sleep(0.1)
+            for recorder in self.list_recorders:
+                if recorder.should_stop():
+                    self.stop()
+                    self.join()
+                    return
+        print("Timeout reached. Stopping recording.")
+        self.stop()
+        self.join()
 
 
 if __name__ == "__main__":
@@ -346,6 +426,4 @@ if __name__ == "__main__":
             InputRecording(),
         ]
     )
-    manager.start()
-    # Stop the screen recording
-    manager.join()
+    manager.run_until_stop(timeout=100)
