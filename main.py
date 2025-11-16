@@ -7,11 +7,23 @@ import time
 from abc import ABC, abstractmethod
 from multiprocessing import Process, Queue, Value
 from queue import Empty
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, NewType, Optional, Tuple
 
 import mss
 import mss.tools
 from pynput import keyboard, mouse
+
+# LogType used for logs
+LogType = (
+    int
+    | float
+    | str
+    | bool
+    | Tuple["LogType", ...]
+    | list["LogType"]
+    | dict[str, "LogType"]
+    | None
+)
 
 
 def _grab(
@@ -113,10 +125,12 @@ class Recorder(ABC):
 
     @abstractmethod
     def start(self) -> None:
+        """Used to start the recording."""
         pass
 
     @abstractmethod
     def stop(self) -> None:
+        """Used to return flag to stop the recording."""
         self.is_stopped = True
 
     @abstractmethod
@@ -125,6 +139,7 @@ class Recorder(ABC):
 
     @abstractmethod
     def join(self) -> Any:
+        """Wait for the recording to finish."""
         assert self.is_stopped, "Recorder is not stopped. Call stop() first."
 
 
@@ -205,7 +220,7 @@ class ScreenRecording(Recorder):
         """Stop the screen recording."""
         self._stop_flag.value = True
 
-    def join(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    def join(self) -> LogType:
         """Stop the screen recording."""
         if self._p_grab is not None:
             self._p_grab.join()
