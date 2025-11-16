@@ -176,8 +176,11 @@ class ScreenRecording(Recorder):
     def _save_timestamps(self, grab_log: Dict[str, Any]) -> None:
         """Save the timestamps of the screen recording to a file."""
         with open(self.path_output + "timestamps.txt", "w", encoding="utf-8") as f:
-            for timestamp in grab_log["timestamps"]:
-                f.write(f"{timestamp:.6f}\n")
+            for incr, timestamp in enumerate(grab_log["timestamps"]):
+                if incr == len(grab_log["timestamps"]) - 1:
+                    f.write(f"{timestamp:.6f}")
+                else:
+                    f.write(f"{timestamp:.6f}\n")
 
     def _get_logs(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         log_caught = 0
