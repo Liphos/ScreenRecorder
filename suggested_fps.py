@@ -25,7 +25,7 @@ def main(max_processes: int = 4, max_fps: int = 60, verbose: bool = False) -> No
             )
             screen_recorder.start()
             # Stop the screen recording
-            grab_log, saving_logs = screen_recorder.stop()
+            grab_log, saving_logs = screen_recorder.join()
             # Check if the config is safe
             is_unsafe = False
             # For grabbing

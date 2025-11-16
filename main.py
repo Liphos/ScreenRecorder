@@ -97,7 +97,7 @@ class Recorder(ABC):
         pass
 
     @abstractmethod
-    def stop(self) -> Any:
+    def join(self) -> Any:
         pass
 
 
@@ -157,7 +157,7 @@ class ScreenRecording(Recorder):
         for p_save in self._p_saves:
             p_save.start()
 
-    def stop(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    def join(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """Stop the screen recording."""
         if self._p_grab is not None:
             self._p_grab.join()
@@ -288,7 +288,7 @@ class InputRecording(Recorder):
         self.keyboard_listener.start()
         self.mouse_listener.start()
 
-    def stop(self) -> None:
+    def join(self) -> None:
         # Stop the keyboard recording
         # Dump the action logs to a file
         self.keyboard_listener.stop()
@@ -333,9 +333,9 @@ class Manager:
         for recorder in self.list_recorders:
             recorder.start()
 
-    def stop(self) -> Any:
+    def join(self) -> Any:
         for recorder in self.list_recorders:
-            recorder.stop()
+            recorder.join()
 
 
 if __name__ == "__main__":
@@ -348,4 +348,4 @@ if __name__ == "__main__":
     )
     manager.start()
     # Stop the screen recording
-    manager.stop()
+    manager.join()
