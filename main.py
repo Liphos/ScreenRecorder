@@ -370,6 +370,38 @@ class InputRecording(Recorder):
             json.dump(self._action_logs, f)
 
 
+class StopRecording(Recorder):
+    """Stop the recording if hotkey is pressed.
+    Args:
+        hotkey (str, optional): Hotkey to stop the recording. It follows the format of pynput. Defaults to "<ctrl>+<shift>+<esc>".
+    """
+
+    def __init__(self, hotkey: str = "<ctrl>+<shift>+<delete>") -> None:
+        super().__init__()
+        self.hotkey_listener = keyboard.GlobalHotKeys(
+            {
+                hotkey: self._stop,
+            }
+        )
+        self._should_stop = False
+
+    def should_stop(self) -> bool:
+        return self._should_stop
+
+    def start(self) -> None:
+        self.hotkey_listener.start()
+
+    def _stop(self) -> None:
+        """Return flag to stop the recording"""
+        self._should_stop = True
+
+    def stop(self) -> None:
+        self.hotkey_listener.stop()
+
+    def join(self) -> None:
+        self.hotkey_listener.join()
+
+
 class Manager:
     """Manager class. It manages the different recorders and saves the data to the disk."""
 
@@ -439,6 +471,7 @@ if __name__ == "__main__":
         [
             ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6),
             InputRecording(),
+            StopRecording(),
         ]
     )
     manager.run_until_stop(timeout=100)
