@@ -13,18 +13,6 @@ import mss
 import mss.tools
 from pynput import keyboard, mouse
 
-# LogType used for logs
-LogType = (
-    int
-    | float
-    | str
-    | bool
-    | Tuple["LogType", ...]
-    | list["LogType"]
-    | dict[str, "LogType"]
-    | None
-)
-
 
 def _grab(
     queues: list[Queue],
@@ -85,6 +73,15 @@ def _save(
     process_id: int,
     n_processes: int,
 ) -> None:
+    """Process that saves the screenshots to the disk.
+    Args:
+        queue (Queue): Queue to get the screenshots from.
+        _out_queue (Queue): Queue to send the logs to at the end.
+        path_output (str): Path to save the screenshots to.
+        compression_rate (int): Compression rate for the screenshots.
+        process_id (int): ID of the process.
+        n_processes (int): Number of processes.
+    """
     number = 0
     output = path_output + "file_{}.png"
     to_png = mss.tools.to_png
@@ -152,6 +149,7 @@ class ScreenRecording(Recorder):
         aimed_fps: int = 10,
         compression_rate: int = 6,
         max_screenshots: int = 100_000,
+        allowed_n_images_delayed: int = 100,
     ) -> None:
         """Initialize the screen recording.
 
@@ -160,6 +158,7 @@ class ScreenRecording(Recorder):
             aimed_fps (int): Aimed FPS for the screen recording. Lower this value when the tool fails to screenshot at the desired FPS.
             compression_rate (int, optional): Compression rate for the screenshots. Higher values means smaller files and longer saving time. Defaults to 6.
             max_screenshots (int, optional): Option to stop recording after a certain number of screenshots is taken. Defaults to 100_000.
+            allowed_n_images_delayed (int, optional): Allowed number of images accumulated in the queue. If it exceeds, the process will call stop to protect current colleted data. Defaults to 100.
         """
 
         super().__init__()
@@ -167,6 +166,7 @@ class ScreenRecording(Recorder):
         self.aimed_fps = aimed_fps
         self.compression_rate = compression_rate
         self.max_screenshots = max_screenshots
+        self.allowed_n_images_delayed = allowed_n_images_delayed
         # Queues
         self._list_queues: list[Queue] = [Queue() for _ in range(n_processes)]
         self._out_queue: Queue = Queue()
@@ -210,17 +210,24 @@ class ScreenRecording(Recorder):
             p_save.start()
 
     def should_stop(self) -> bool:
-        """Call to stop if grabbing process has stopped."""
+        """Call to stop if grabbing process has stopped or if the number of images accumulated in the saving queues exceeds the allowed number."""
         assert (
             self._p_grab is not None
         ), "Grabbing process has not started. Call start() first."
+        if any(
+            queue.qsize() > self.allowed_n_images_delayed for queue in self._list_queues
+        ):
+            print(
+                f"Stopping recording because the number of images accumulated in the saving queues exceeds the allowed number: allowed_n_images_delayed={self.allowed_n_images_delayed}. Consider increasing the number of processes or decreasing the aimed FPS."
+            )
+            return True
         return not self._p_grab.is_alive()
 
     def stop(self) -> None:
         """Stop the screen recording."""
         self._stop_flag.value = True
 
-    def join(self) -> LogType:
+    def join(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """Stop the screen recording."""
         if self._p_grab is not None:
             self._p_grab.join()
