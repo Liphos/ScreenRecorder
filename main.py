@@ -136,7 +136,8 @@ class ScreenRecording(Recorder):
         # 2 processes: one for grabbing and one for saving PNG files
         # grabing is in the main process
         self._p_grab = Process(
-            target=_grab, args=(self._list_queues, self._out_queue, self.aimed_fps, 100)
+            target=_grab,
+            args=(self._list_queues, self._out_queue, self.aimed_fps, 600),
         )
         self._p_saves = [
             Process(
@@ -221,7 +222,10 @@ class ScreenRecording(Recorder):
 
 
 class InputRecording(Recorder):
+    """Input Recording class. It captures the keyboard and mouse inputs and saves the data to a separate file."""
+
     def on_press(self, key: keyboard.KeyCode | keyboard.Key):
+        """Called when pressing a key."""
         self._action_logs.append(
             {
                 "timestamp": time.time(),
