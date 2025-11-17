@@ -3,6 +3,7 @@
 import ctypes
 import json
 import os
+import threading
 import time
 from abc import ABC, abstractmethod
 from multiprocessing import Process, Queue, Value
@@ -11,6 +12,7 @@ from typing import Any, Dict, List, Literal, NewType, Optional, Tuple
 
 import mss
 import mss.tools
+from inputs import get_gamepad
 from pynput import keyboard, mouse
 
 
@@ -415,6 +417,70 @@ class StopRecording(Recorder):
         self.hotkey_listener.join()
 
 
+class GamepadRecording(Recorder):
+    """Gamepad Recording class. It captures the gamepad inputs and saves the data to a separate file."""
+
+    def get_gamepad_inputs(self) -> None:
+        """Thread that captures the gamepad inputs"""
+        while not self._stop_event.is_set():
+            # time.sleep(0.001)
+            events = get_gamepad()
+            for event in events:
+                if event.ev_type == "Key":
+                    if event.state == 1:
+                        self._action_logs.append(
+                            {
+                                "timestamp": time.time(),
+                                "type": "pressed",
+                                "key": event.code,
+                            }
+                        )
+                    elif event.state == 0:
+                        self._action_logs.append(
+                            {
+                                "timestamp": time.time(),
+                                "type": "released",
+                                "key": event.code,
+                            }
+                        )
+                elif event.ev_type == "Absolute":
+                    self._action_logs.append(
+                        {
+                            "timestamp": time.time(),
+                            "type": "absolute",
+                            "axis": event.code,
+                            "value": event.state,
+                        }
+                    )
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._action_logs: List[Dict[str, str | int | float | bool]] = []
+        self._stop_event = threading.Event()
+        self._gamepad_thread = threading.Thread(
+            target=self.get_gamepad_inputs,
+        )
+
+    def start(self) -> None:
+        self._gamepad_thread.start()
+
+    def stop(self) -> None:
+        super().stop()
+        self._stop_event.set()
+
+    def join(self) -> None:
+        super().join()
+        self._gamepad_thread.join()
+        # Dump the action logs to a file
+        time_to_save = time.time()
+        with open(self.path_output + "gamepad_logs.json", "w", encoding="utf-8") as f:
+            json.dump(self._action_logs, f)
+        print(f"Time to save gamepad logs: {time.time() - time_to_save:.2f} seconds")
+
+    def should_stop(self) -> bool:
+        return not self._gamepad_thread.is_alive()
+
+
 class Manager:
     """Manager class. It manages the different recorders and saves the data to the disk."""
 
@@ -485,6 +551,7 @@ if __name__ == "__main__":
             ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6),
             InputRecording(),
             StopRecording(),
+            GamepadRecording(),
         ]
     )
-    manager.run_until_stop(timeout=100)
+    manager.run_until_stop(timeout=60)
