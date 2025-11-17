@@ -1,5 +1,5 @@
-This library allows to record your screen as well as mouse, keyboard and controller inputs. 
-The objective is to easily create a dataset from human interaction with a computer(working, playing games...).
+This library allows to record your screen as well as mouse, keyboard and gamepad inputs. 
+The objective is to create easily a dataset of human computer interactions on several tasks(exploring the web, working with excel, playing games).
 This repository adopted the one script ideology. Main.py contains all the code, the rest are tests and scripts to determinate optimal parameters.
 
 ## Setup
