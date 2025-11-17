@@ -502,6 +502,7 @@ class GamepadRecording(Recorder):
         self._gamepad_thread = threading.Thread(
             target=self.get_gamepad_inputs,
         )
+        self._gamepad_thread.daemon = True
 
     def check_availability(self) -> Exception | None:
         try:
