@@ -295,8 +295,8 @@ class ScreenRecording(Recorder):
         print(f"Processes save time: {lst_save_time}")
 
 
-class InputRecording(Recorder):
-    """Input Recording class. It captures the keyboard and mouse inputs and saves the data to a separate file."""
+class KeyboardRecording(Recorder):
+    """Keyboard Recording class. It captures the keyboard inputs and saves the data to a separate file."""
 
     def on_press(self, key: keyboard.KeyCode | keyboard.Key):
         """Called when pressing a key."""
@@ -309,6 +309,7 @@ class InputRecording(Recorder):
         )
 
     def on_release(self, key: keyboard.KeyCode | keyboard.Key):
+        """Called when releasing a key."""
         self._action_logs.append(
             {
                 "timestamp": time.time(),
@@ -317,12 +318,45 @@ class InputRecording(Recorder):
             }
         )
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._action_logs: List[Dict[str, Any]] = []
+        self.keyboard_listener = keyboard.Listener(
+            on_press=self.on_press, on_release=self.on_release
+        )
+
+    def start(self) -> None:
+        """Start the keyboard recording."""
+        self.keyboard_listener.start()
+
+    def stop(self) -> None:
+        """Stop the keyboard recording."""
+        super().stop()
+        self.keyboard_listener.stop()
+
+    def should_stop(self) -> bool:
+        """Call to stop if keyboard recording has stopped."""
+        return not self.keyboard_listener.is_alive()
+
+    def join(self) -> None:
+        """Wait for the keyboard recording to finish and save the logs."""
+        super().join()
+        self.keyboard_listener.join()
+        with open(self.path_output + "keyboard_logs.json", "w", encoding="utf-8") as f:
+            json.dump(self._action_logs, f)
+
+
+class MouseRecording(Recorder):
+    """Mouse Recording class. It captures the mouse inputs and saves the data to a separate file."""
+
     def on_move(self, x: int, y: int):
+        """Called when moving the mouse."""
         self._action_logs.append(
             {"timestamp": time.time(), "type": "move", "x": x, "y": y}
         )
 
     def on_click(self, x: int, y: int, button: mouse.Button, pressed: bool):
+        """Called when clicking the mouse."""
         self._action_logs.append(
             {
                 "timestamp": time.time(),
@@ -335,6 +369,7 @@ class InputRecording(Recorder):
         )
 
     def on_scroll(self, x: int, y: int, dx: int, dy: int):
+        """Called when scrolling the mouse."""
         self._action_logs.append(
             {
                 "timestamp": time.time(),
@@ -347,39 +382,30 @@ class InputRecording(Recorder):
         )
 
     def __init__(self) -> None:
-        # Define variables and create word file
         super().__init__()
         self._action_logs: List[Dict[str, Any]] = []
-        self.keyboard_listener = keyboard.Listener(
-            on_press=self.on_press, on_release=self.on_release
-        )
         self.mouse_listener = mouse.Listener(
             on_move=self.on_move, on_click=self.on_click, on_scroll=self.on_scroll
         )
 
     def start(self) -> None:
-        # Start the keyboard recording
-        self.keyboard_listener.start()
+        """Start the mouse recording."""
         self.mouse_listener.start()
 
     def stop(self) -> None:
+        """Stop the mouse recording."""
         super().stop()
-        # Stop the keyboard recording
-        self.keyboard_listener.stop()
         self.mouse_listener.stop()
 
     def should_stop(self) -> bool:
-        """Call to stop if keyboard or mouse recording has stopped."""
-        return (
-            not self.keyboard_listener.is_alive() or not self.mouse_listener.is_alive()
-        )
+        """Call to stop if mouse recording has stopped."""
+        return not self.mouse_listener.is_alive()
 
     def join(self) -> None:
+        """Wait for the mouse recording to finish and save the logs."""
         super().join()
-        # Dump the action logs to a file
-        self.keyboard_listener.join()
         self.mouse_listener.join()
-        with open(self.path_output + "action_logs.json", "w", encoding="utf-8") as f:
+        with open(self.path_output + "mouse_logs.json", "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
 
 
@@ -549,7 +575,8 @@ if __name__ == "__main__":
     manager = Manager(
         [
             ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6),
-            InputRecording(),
+            KeyboardRecording(),
+            MouseRecording(),
             StopRecording(),
             GamepadRecording(),
         ]
