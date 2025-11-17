@@ -1,5 +1,7 @@
 """Return suggested FPS and config for the screen recording."""
 
+import os
+
 from tqdm import tqdm
 
 from main import ScreenRecording
@@ -16,9 +18,14 @@ def main(max_processes: int = 4, max_fps: int = 60, verbose: bool = False) -> No
         while aimed_fps >= 10:
             if verbose:
                 print(f"Testing {n_processes} processes and {aimed_fps} FPS...")
+            # Create the output directory
+            os.makedirs(PATH_OUTPUT, exist_ok=True)
             # Start the screen recording
             screen_recorder = ScreenRecording(
-                n_processes=n_processes, aimed_fps=aimed_fps, compression_rate=6
+                n_processes=n_processes,
+                aimed_fps=aimed_fps,
+                compression_rate=6,
+                max_screenshots=500,
             )
             screen_recorder.set_common_parameters(
                 path_output=PATH_OUTPUT, print_results=verbose
