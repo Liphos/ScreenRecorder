@@ -225,10 +225,12 @@ class ScreenRecording(Recorder):
 
     def stop(self) -> None:
         """Stop the screen recording."""
+        super().stop()
         self._stop_flag.value = True
 
     def join(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """Stop the screen recording."""
+        super().join()
         if self._p_grab is not None:
             self._p_grab.join()
         else:
@@ -359,6 +361,7 @@ class InputRecording(Recorder):
         self.mouse_listener.start()
 
     def stop(self) -> None:
+        super().stop()
         # Stop the keyboard recording
         self.keyboard_listener.stop()
         self.mouse_listener.stop()
@@ -370,6 +373,7 @@ class InputRecording(Recorder):
         )
 
     def join(self) -> None:
+        super().join()
         # Dump the action logs to a file
         self.keyboard_listener.join()
         self.mouse_listener.join()
@@ -403,9 +407,11 @@ class StopRecording(Recorder):
         self._should_stop = True
 
     def stop(self) -> None:
+        super().stop()
         self.hotkey_listener.stop()
 
     def join(self) -> None:
+        super().join()
         self.hotkey_listener.join()
 
 
