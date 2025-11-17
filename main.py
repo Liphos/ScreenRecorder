@@ -449,7 +449,6 @@ class GamepadRecording(Recorder):
     def get_gamepad_inputs(self) -> None:
         """Thread that captures the gamepad inputs"""
         while not self._stop_event.is_set():
-            # time.sleep(0.001)
             events = get_gamepad()
             for event in events:
                 if event.ev_type == "Key":
@@ -496,7 +495,9 @@ class GamepadRecording(Recorder):
 
     def join(self) -> None:
         super().join()
-        self._gamepad_thread.join()
+        # Add a timeout here as an exception because the gampad thread won't stop until a gamepad input is detected
+        # TODO: Find a way to add a timeout
+        self._gamepad_thread.join(timeout=10)
         # Dump the action logs to a file
         time_to_save = time.time()
         with open(self.path_output + "gamepad_logs.json", "w", encoding="utf-8") as f:
