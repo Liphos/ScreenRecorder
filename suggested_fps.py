@@ -1,6 +1,7 @@
 """Return suggested FPS and config for the screen recording."""
 
 import os
+import time
 
 from tqdm import tqdm
 
@@ -43,6 +44,9 @@ def main(
             )
             screen_recorder.start()
             # Stop the screen recording
+            while not screen_recorder.should_stop():
+                time.sleep(0.01)
+            screen_recorder.stop()
             grab_log, saving_logs = screen_recorder.join()
             # Check if the config is safe
             is_unsafe = False
