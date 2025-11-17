@@ -590,11 +590,13 @@ class Manager:
         for recorder in self.list_recorders:
             recorder.join()
 
-    def run_until_stop(self, timeout: float = 150_000) -> None:
+    def run_until_stop(self, start_delay: float = 0, timeout: float = 150_000) -> None:
         """Run the manager until the stop() method is called.
         Args:
+            start_delay (float, optional): Delay in seconds before starting the recording. Defaults to 0.
             timeout (float, optional): Timeout in seconds. Defaults to 150_000.
         """
+        time.sleep(start_delay)
         start_time = time.time()
         self.start()
         while time.time() - start_time < timeout:
@@ -620,4 +622,4 @@ if __name__ == "__main__":
             GamepadRecording(),
         ]
     )
-    manager.run_until_stop(timeout=60)
+    manager.run_until_stop(start_delay=10, timeout=60)
