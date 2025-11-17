@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Literal, NewType, Optional, Tuple
 
 import mss
 import mss.tools
-from inputs import get_gamepad
+from inputs import UnpluggedError, devices, get_gamepad
 from pynput import keyboard, mouse
 
 
@@ -122,6 +122,10 @@ class Recorder(ABC):
         self.path_output = path_output
         self.print_results = print_results
 
+    def check_availability(self) -> Exception | None:
+        """Check if the recorder is available."""
+        return None
+
     @abstractmethod
     def start(self) -> None:
         """Used to start the recording."""
@@ -177,6 +181,19 @@ class ScreenRecording(Recorder):
         # Processes
         self._p_grab: Process | None = None
         self._p_saves: list[Process] = []
+
+    def check_availability(self) -> Exception | None:
+        with mss.mss() as sct:
+            try:
+                rect = {
+                    "top": sct.monitors[1]["top"],
+                    "left": sct.monitors[1]["left"],
+                    "width": sct.monitors[1]["width"],
+                    "height": sct.monitors[1]["height"],
+                }
+            except Exception as e:
+                raise UnpluggedError("No screen found.") from e
+        return None
 
     def start(self) -> None:
         """Start the screen recording."""
@@ -486,6 +503,14 @@ class GamepadRecording(Recorder):
             target=self.get_gamepad_inputs,
         )
 
+    def check_availability(self) -> Exception | None:
+        try:
+            _ = devices.gamepads[0]
+            return None
+        except IndexError:
+            # No gamepad found
+            return UnpluggedError("No gamepad found.")
+
     def start(self) -> None:
         self._gamepad_thread.start()
 
@@ -539,6 +564,19 @@ class Manager:
         self.is_stopped = False  # Flag to check if stop() has been called
 
     def start(self) -> None:
+        # Check availability of all recorders and remove recorders that are not available
+        remaining_recorders: List[Recorder] = []
+        for recorder in self.list_recorders:
+            exception = recorder.check_availability()
+            if exception is None:
+                remaining_recorders.append(recorder)
+            else:
+                print(
+                    f"WARNING: Recorder {recorder.__class__.__name__} is not available: {exception}"
+                )
+                print("This recorder will not be used.")
+        self.list_recorders = remaining_recorders
+        # Start the recorders that are available
         for recorder in self.list_recorders:
             recorder.start()
 
