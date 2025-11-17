@@ -9,8 +9,19 @@ from main import ScreenRecording
 PATH_OUTPUT = "./screenshots/temp/"
 
 
-def main(max_processes: int = 4, max_fps: int = 60, verbose: bool = False) -> None:
-    """Return suggested FPS and config for the screen recording."""
+def main(
+    max_processes: int = 4,
+    max_fps: int = 60,
+    n_screenshots: int = 500,
+    verbose: bool = False,
+) -> None:
+    """Return suggested FPS and config for the screen recording.
+    Args:
+        max_processes (int): Maximum number of processes to test.
+        max_fps (int): Maximum FPS to test.
+        n_screenshots (int): Number of screenshots to take.
+        verbose (bool): Whether to print verbose output.
+    """
     best_fps = []
     most_stable_fps = []
     for n_processes in tqdm(range(1, max_processes + 1)):
@@ -25,7 +36,7 @@ def main(max_processes: int = 4, max_fps: int = 60, verbose: bool = False) -> No
                 n_processes=n_processes,
                 aimed_fps=aimed_fps,
                 compression_rate=6,
-                max_screenshots=500,
+                max_screenshots=n_screenshots,
             )
             screen_recorder.set_common_parameters(
                 path_output=PATH_OUTPUT, print_results=verbose
