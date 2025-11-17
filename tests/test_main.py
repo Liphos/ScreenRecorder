@@ -6,6 +6,7 @@ import pytest
 
 sys.path.append("../recorder")
 from main import (
+    GamepadRecording,
     KeyboardRecording,
     Manager,
     MouseRecording,
@@ -40,6 +41,17 @@ def test_input_recording():
     manager.run_until_stop(timeout=10)
 
 
+def test_gamepad_recording():
+    manager = Manager(
+        [
+            GamepadRecording(),
+        ],
+        path_output="./screenshots/test/",
+        print_results=False,
+    )
+    manager.run_until_stop(timeout=10)
+
+
 def test_external_stop():
     manager = Manager(
         [
@@ -62,6 +74,7 @@ def test_combined_recording():
             KeyboardRecording(),
             MouseRecording(),
             StopRecording(),
+            GamepadRecording(),
         ],
         path_output="./screenshots/test/",
         print_results=False,
