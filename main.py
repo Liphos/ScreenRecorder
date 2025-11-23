@@ -137,24 +137,38 @@ class Recorder(ABC):
         """Check if the recorder is available."""
         return None
 
-    @abstractmethod
     def start(self) -> None:
-        """Used to start the recording."""
-        pass
+        self._start()
 
-    @abstractmethod
+    def should_stop(self) -> bool:
+        return self._should_stop()
+
     def stop(self) -> None:
-        """Used to return flag to stop the recording."""
+        self._stop()
         self.is_stopped = True
 
-    @abstractmethod
-    def should_stop(self) -> bool:
-        pass
+    def join(self) -> Any:
+        assert self.is_stopped, "Recorder is not stopped. Call stop() first."
+        logs = self._join()
+        if self.verbose:
+            print(f"{self.__class__.__name__} recording finished.")
+        return logs
 
     @abstractmethod
-    def join(self) -> Any:
-        """Wait for the recording to finish."""
-        assert self.is_stopped, "Recorder is not stopped. Call stop() first."
+    def _start(self) -> None:
+        """Used to start the recording."""
+
+    @abstractmethod
+    def _should_stop(self) -> bool:
+        """Used to return flag to stop the recording."""
+
+    @abstractmethod
+    def _stop(self) -> None:
+        """Used to return flag to stop the recording."""
+
+    @abstractmethod
+    def _join(self) -> Any:
+        """Used to wait for the recording to finish."""
 
 
 class ScreenRecording(Recorder):
@@ -206,7 +220,7 @@ class ScreenRecording(Recorder):
                 raise UnpluggedError("No screen found.") from e
         return None
 
-    def start(self) -> None:
+    def _start(self) -> None:
         """Start the screen recording."""
         assert self.n_processes > 0, "n_processes must be 1 or more"
         # 2 processes: one for grabbing and one for saving PNG files
@@ -241,7 +255,7 @@ class ScreenRecording(Recorder):
         for p_save in self._p_saves:
             p_save.start()
 
-    def should_stop(self) -> bool:
+    def _should_stop(self) -> bool:
         """Call to stop if grabbing process has stopped or if the number of images accumulated in the saving queues exceeds the allowed number."""
         assert (
             self._p_grab is not None
@@ -255,14 +269,12 @@ class ScreenRecording(Recorder):
             return True
         return not self._p_grab.is_alive()
 
-    def stop(self) -> None:
+    def _stop(self) -> None:
         """Stop the screen recording."""
-        super().stop()
         self._stop_flag.value = True
 
-    def join(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    def _join(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """Stop the screen recording."""
-        super().join()
         if self._p_grab is not None:
             self._p_grab.join()
         else:
@@ -276,8 +288,6 @@ class ScreenRecording(Recorder):
         self._save_timestamps(grab_log)
         if self.print_results:
             self._print_results(grab_log, saving_logs)
-        if self.verbose:
-            print("Screen recording finished.")
         return grab_log, saving_logs
 
     def _save_timestamps(self, grab_log: Dict[str, Any]) -> None:
@@ -357,27 +367,23 @@ class KeyboardRecording(Recorder):
             on_press=self.on_press, on_release=self.on_release
         )
 
-    def start(self) -> None:
+    def _start(self) -> None:
         """Start the keyboard recording."""
         self.keyboard_listener.start()
 
-    def stop(self) -> None:
+    def _stop(self) -> None:
         """Stop the keyboard recording."""
-        super().stop()
         self.keyboard_listener.stop()
 
-    def should_stop(self) -> bool:
+    def _should_stop(self) -> bool:
         """Call to stop if keyboard recording has stopped."""
         return not self.keyboard_listener.is_alive()
 
-    def join(self) -> None:
+    def _join(self) -> None:
         """Wait for the keyboard recording to finish and save the logs."""
-        super().join()
         self.keyboard_listener.join()
         with open(self.path_output + "keyboard_logs.json", "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
-        if self.verbose:
-            print("Keyboard recording finished.")
 
 
 class MouseRecording(Recorder):
@@ -422,27 +428,23 @@ class MouseRecording(Recorder):
             on_move=self.on_move, on_click=self.on_click, on_scroll=self.on_scroll
         )
 
-    def start(self) -> None:
+    def _start(self) -> None:
         """Start the mouse recording."""
         self.mouse_listener.start()
 
-    def stop(self) -> None:
+    def _stop(self) -> None:
         """Stop the mouse recording."""
-        super().stop()
         self.mouse_listener.stop()
 
-    def should_stop(self) -> bool:
+    def _should_stop(self) -> bool:
         """Call to stop if mouse recording has stopped."""
         return not self.mouse_listener.is_alive()
 
-    def join(self) -> None:
+    def _join(self) -> None:
         """Wait for the mouse recording to finish and save the logs."""
-        super().join()
         self.mouse_listener.join()
         with open(self.path_output + "mouse_logs.json", "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
-        if self.verbose:
-            print("Mouse recording finished.")
 
 
 class StopRecording(Recorder):
@@ -455,30 +457,26 @@ class StopRecording(Recorder):
         super().__init__()
         self.hotkey_listener = keyboard.GlobalHotKeys(
             {
-                hotkey: self._stop,
+                hotkey: self._return_flag,
             }
         )
-        self._should_stop = False
+        self.hotkey_pressed = False
 
-    def should_stop(self) -> bool:
-        return self._should_stop
+    def _should_stop(self) -> bool:
+        return self.hotkey_pressed
 
-    def start(self) -> None:
+    def _start(self) -> None:
         self.hotkey_listener.start()
 
-    def _stop(self) -> None:
+    def _return_flag(self) -> None:
         """Return flag to stop the recording"""
-        self._should_stop = True
+        self.hotkey_pressed = True
 
-    def stop(self) -> None:
-        super().stop()
+    def _stop(self) -> None:
         self.hotkey_listener.stop()
 
-    def join(self) -> None:
-        super().join()
+    def _join(self) -> None:
         self.hotkey_listener.join()
-        if self.verbose:
-            print("Stop recording hotkey finished.")
 
 
 class GamepadRecording(Recorder):
@@ -533,15 +531,13 @@ class GamepadRecording(Recorder):
             # No gamepad found
             return UnpluggedError("No gamepad found.")
 
-    def start(self) -> None:
+    def _start(self) -> None:
         self._gamepad_thread.start()
 
-    def stop(self) -> None:
-        super().stop()
+    def _stop(self) -> None:
         self._stop_event.set()
 
-    def join(self) -> None:
-        super().join()
+    def _join(self) -> None:
         # Add a timeout here as an exception because the gampad thread won't stop until a gamepad input is detected
         # TODO: Find a way to add a timeout
         self._gamepad_thread.join(timeout=10)
@@ -550,10 +546,8 @@ class GamepadRecording(Recorder):
         with open(self.path_output + "gamepad_logs.json", "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
         print(f"Time to save gamepad logs: {time.time() - time_to_save:.2f} seconds")
-        if self.verbose:
-            print("Gamepad recording finished.")
 
-    def should_stop(self) -> bool:
+    def _should_stop(self) -> bool:
         return not self._gamepad_thread.is_alive()
 
 
