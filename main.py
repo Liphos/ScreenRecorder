@@ -22,6 +22,7 @@ def _grab(
     stop_flag: ctypes.c_bool,
     aimed_fps: int,
     max_screenshots: int = 100_000,
+    verbose: bool = False,
 ) -> None:
     """Process that take screenshots at desired FPS and send them to the queues.
 
@@ -31,6 +32,7 @@ def _grab(
         stop_flag (ctypes.c_bool): Flag to stop the process from the main process.
         aimed_fps (int): Desired FPS for the screenshots.
         max_screenshots (int, optional): Maximum number of screenshots before stopping. Defaults to 100_000.
+        verbose (bool, optional): Control how much information is printed. Useful for debugging. Defaults to False.
     """
     sct = mss.mss()
     all_timestamps = []
@@ -53,7 +55,8 @@ def _grab(
         time.sleep(max(0, 1 / aimed_fps - (time.perf_counter() - grab_time)))
         max_stable_fps = min(max_stable_fps, int(1 / (time.perf_counter() - grab_time)))
         grab_time = time.perf_counter()
-
+    if verbose:
+        print("Stop screenshotting. Give empty image to saving workers to stop.")
     # Tell the other worker to stop
     for queue in queues:
         queue.put(None)
@@ -74,6 +77,7 @@ def _save(
     compression_rate: int,
     process_id: int,
     n_processes: int,
+    verbose: bool = False,
 ) -> None:
     """Process that saves the screenshots to the disk.
     Args:
@@ -83,6 +87,7 @@ def _save(
         compression_rate (int): Compression rate for the screenshots.
         process_id (int): ID of the process.
         n_processes (int): Number of processes.
+        verbose (bool, optional): Control how much information is printed. Useful for debugging. Defaults to False.
     """
     number = 0
     output = path_output + "file_{}.png"
@@ -100,6 +105,8 @@ def _save(
             level=compression_rate,
         )
         number += 1
+    if verbose:
+        print(f"Saving worker :{process_id} finished and output logs.")
     out_log = {
         "log": "saving",
         "id": process_id,
@@ -113,14 +120,18 @@ class Recorder(ABC):
     """Abstract class for all recorders."""
 
     def __init__(self) -> None:
+        self.verbose: bool
         self.path_output: str
         self.print_results: bool
         self.is_stopped: bool = False
 
-    def set_common_parameters(self, path_output: str, print_results: bool) -> None:
+    def set_common_parameters(
+        self, path_output: str, print_results: bool, verbose: bool = False
+    ) -> None:
         """Set parameters common to all recorders."""
         self.path_output = path_output
         self.print_results = print_results
+        self.verbose = verbose
 
     def check_availability(self) -> Exception | None:
         """Check if the recorder is available."""
@@ -208,6 +219,7 @@ class ScreenRecording(Recorder):
                 self._stop_flag,
                 self.aimed_fps,
                 self.max_screenshots,
+                self.verbose,
             ),
         )
         self._p_saves = [
@@ -220,6 +232,7 @@ class ScreenRecording(Recorder):
                     self.compression_rate,
                     id,
                     self.n_processes,
+                    self.verbose,
                 ),
             )
             for id, queue in enumerate(self._list_queues)
@@ -263,6 +276,8 @@ class ScreenRecording(Recorder):
         self._save_timestamps(grab_log)
         if self.print_results:
             self._print_results(grab_log, saving_logs)
+        if self.verbose:
+            print("Screen recording finished.")
         return grab_log, saving_logs
 
     def _save_timestamps(self, grab_log: Dict[str, Any]) -> None:
@@ -361,6 +376,8 @@ class KeyboardRecording(Recorder):
         self.keyboard_listener.join()
         with open(self.path_output + "keyboard_logs.json", "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
+        if self.verbose:
+            print("Keyboard recording finished.")
 
 
 class MouseRecording(Recorder):
@@ -424,6 +441,8 @@ class MouseRecording(Recorder):
         self.mouse_listener.join()
         with open(self.path_output + "mouse_logs.json", "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
+        if self.verbose:
+            print("Mouse recording finished.")
 
 
 class StopRecording(Recorder):
@@ -458,6 +477,8 @@ class StopRecording(Recorder):
     def join(self) -> None:
         super().join()
         self.hotkey_listener.join()
+        if self.verbose:
+            print("Stop recording hotkey finished.")
 
 
 class GamepadRecording(Recorder):
@@ -529,6 +550,8 @@ class GamepadRecording(Recorder):
         with open(self.path_output + "gamepad_logs.json", "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
         print(f"Time to save gamepad logs: {time.time() - time_to_save:.2f} seconds")
+        if self.verbose:
+            print("Gamepad recording finished.")
 
     def should_stop(self) -> bool:
         return not self._gamepad_thread.is_alive()
@@ -542,6 +565,7 @@ class Manager:
         list_recorders: list[Recorder],
         path_output: str = "./screenshots/",
         print_results: bool = True,
+        verbose: bool = False,
     ) -> None:
         """Initialize the manager and recorders.
 
@@ -549,6 +573,7 @@ class Manager:
             list_recorders (list[Recorder]): List of recorders to manage.
             path_output (str, optional): Directory to save screenshots and data. Defaults to "./screenshots/".
             print_results (bool, optional): Print the performance of the screen recording. Defaults to True.
+            verbose (bool, optional): Control how much information is printed. Useful for debugging. Defaults to False.
         """
 
         # Save parameters
@@ -557,11 +582,14 @@ class Manager:
         )  # Create a subdirectory with the current date and time
         self.print_results = print_results
         self.list_recorders = list_recorders
+        self.verbose = verbose
         # Create the output directory
         os.makedirs(self.path_output, exist_ok=True)
         # Set parameters common to all recorders
         for recorder in list_recorders:
-            recorder.set_common_parameters(self.path_output, self.print_results)
+            recorder.set_common_parameters(
+                self.path_output, self.print_results, self.verbose
+            )
         self.is_stopped = False  # Flag to check if stop() has been called
 
     def start(self) -> None:
@@ -592,7 +620,7 @@ class Manager:
         assert self.is_stopped, "Manager is not stopped. Call stop() first."
         for recorder in self.list_recorders:
             recorder.join()
-        print("Recording stopped.")
+        print("Recording finished.")
 
     def run_until_stop(self, start_delay: float = 0, timeout: float = 150_000) -> None:
         """Run the manager until the stop() method is called.
@@ -625,6 +653,7 @@ if __name__ == "__main__":
             MouseRecording(),
             StopRecording(),
             GamepadRecording(),
-        ]
+        ],
+        verbose=True,
     )
-    manager.run_until_stop(start_delay=10, timeout=60)
+    manager.run_until_stop(start_delay=10)
