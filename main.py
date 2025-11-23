@@ -94,7 +94,7 @@ def _save(
     to_png = mss.tools.to_png
     start_time = time.time()
     while "there are screenshots":
-        img = queue.get()
+        img = queue.get(timeout=60)
         if img is None:
             break
 
