@@ -585,11 +585,14 @@ class Manager:
         for recorder in self.list_recorders:
             recorder.stop()
         self.is_stopped = True
+        print("Stopping recording.")
 
     def join(self) -> Any:
+        print("Waiting for recording to stop.")
         assert self.is_stopped, "Manager is not stopped. Call stop() first."
         for recorder in self.list_recorders:
             recorder.join()
+        print("Recording stopped.")
 
     def run_until_stop(self, start_delay: float = 0, timeout: float = 150_000) -> None:
         """Run the manager until the stop() method is called.
@@ -600,6 +603,7 @@ class Manager:
         time.sleep(start_delay)
         start_time = time.time()
         self.start()
+        print("Recording started.")
         while time.time() - start_time < timeout:
             time.sleep(0.1)
             for recorder in self.list_recorders:
@@ -607,7 +611,7 @@ class Manager:
                     self.stop()
                     self.join()
                     return
-        print("Timeout reached. Stopping recording.")
+        print("Timeout reached.")
         self.stop()
         self.join()
 
