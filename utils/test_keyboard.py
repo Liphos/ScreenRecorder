@@ -2,10 +2,12 @@
 
 from pynput import keyboard
 
-keys_pressed: set[keyboard.Key] = set()
+keys_pressed: set[keyboard.Key | keyboard.KeyCode] = set()
 
 
-def on_press(key: keyboard.KeyCode | keyboard.Key):
+def on_press(key: keyboard.KeyCode | keyboard.Key | None) -> None:
+    if key is None:
+        return
     if isinstance(key, keyboard.KeyCode):
         print("Pressed", key.char)
     else:
@@ -15,7 +17,9 @@ def on_press(key: keyboard.KeyCode | keyboard.Key):
         return False
 
 
-def on_release(key: keyboard.KeyCode | keyboard.Key):
+def on_release(key: keyboard.KeyCode | keyboard.Key | None) -> None:
+    if key is None:
+        return
     if isinstance(key, keyboard.KeyCode):
         print("Released", key.char)
     else:

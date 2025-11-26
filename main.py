@@ -334,8 +334,10 @@ class ScreenRecording(Recorder):
 class KeyboardRecording(Recorder):
     """Keyboard Recording class. It captures the keyboard inputs and saves the data to a separate file."""
 
-    def on_press(self, key: keyboard.KeyCode | keyboard.Key):
+    def on_press(self, key: keyboard.KeyCode | keyboard.Key | None) -> None:
         """Called when pressing a key."""
+        if key is None:
+            return
         self._action_logs.append(
             {
                 "timestamp": time.time(),
@@ -344,8 +346,10 @@ class KeyboardRecording(Recorder):
             }
         )
 
-    def on_release(self, key: keyboard.KeyCode | keyboard.Key):
+    def on_release(self, key: keyboard.KeyCode | keyboard.Key | None) -> None:
         """Called when releasing a key."""
+        if key is None:
+            return
         self._action_logs.append(
             {
                 "timestamp": time.time(),
