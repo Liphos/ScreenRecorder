@@ -8,7 +8,7 @@ import time
 from abc import ABC, abstractmethod
 from multiprocessing import Process, Queue, Value
 from queue import Empty
-from typing import Any, Dict, List, Literal, NewType, Optional, Tuple
+from typing import Any, Dict, List
 
 import mss
 import mss.tools
@@ -210,7 +210,7 @@ class ScreenRecording(Recorder):
     def check_availability(self) -> Exception | None:
         with mss.mss() as sct:
             try:
-                rect = {
+                _ = {
                     "top": sct.monitors[1]["top"],
                     "left": sct.monitors[1]["left"],
                     "width": sct.monitors[1]["width"],
@@ -257,12 +257,8 @@ class ScreenRecording(Recorder):
 
     def _should_stop(self) -> bool:
         """Call to stop if grabbing process has stopped or if the number of images accumulated in the saving queues exceeds the allowed number."""
-        assert (
-            self._p_grab is not None
-        ), "Grabbing process has not started. Call start() first."
-        if any(
-            queue.qsize() > self.allowed_n_images_delayed for queue in self._list_queues
-        ):
+        assert self._p_grab is not None, "Grabbing process has not started. Call start() first."
+        if any(queue.qsize() > self.allowed_n_images_delayed for queue in self._list_queues):
             print(
                 f"Stopping recording because the number of images accumulated in the saving queues exceeds the allowed number: allowed_n_images_delayed={self.allowed_n_images_delayed}. Consider increasing the number of processes or decreasing the aimed FPS."
             )
@@ -309,9 +305,9 @@ class ScreenRecording(Recorder):
                 log_caught += 1
                 if log["log"] == "grabbing":
                     grab_log = log
-                    assert (
-                        grab_log != {}
-                    ), "Multiple grabbing logs means multiple screen recording processes. Only one is expected."
+                    assert grab_log != {}, (
+                        "Multiple grabbing logs means multiple screen recording processes. Only one is expected."
+                    )
                 elif log["log"] == "saving":
                     saving_logs.append(log)
                 else:
@@ -322,9 +318,7 @@ class ScreenRecording(Recorder):
                 ) from esc
         return (grab_log, saving_logs)
 
-    def _print_results(
-        self, grab_log: Dict[str, Any], saving_logs: List[Dict[str, Any]]
-    ) -> None:
+    def _print_results(self, grab_log: Dict[str, Any], saving_logs: List[Dict[str, Any]]) -> None:
         """Print performance of the screen recording. Return the logs."""
         grab_fps = round(grab_log["fps"], 2)
         grab_time = round(grab_log["time"], 2)
@@ -391,9 +385,7 @@ class MouseRecording(Recorder):
 
     def on_move(self, x: int, y: int):
         """Called when moving the mouse."""
-        self._action_logs.append(
-            {"timestamp": time.time(), "type": "move", "x": x, "y": y}
-        )
+        self._action_logs.append({"timestamp": time.time(), "type": "move", "x": x, "y": y})
 
     def on_click(self, x: int, y: int, button: mouse.Button, pressed: bool):
         """Called when clicking the mouse."""
@@ -581,9 +573,7 @@ class Manager:
         os.makedirs(self.path_output, exist_ok=True)
         # Set parameters common to all recorders
         for recorder in list_recorders:
-            recorder.set_common_parameters(
-                self.path_output, self.print_results, self.verbose
-            )
+            recorder.set_common_parameters(self.path_output, self.print_results, self.verbose)
         self.is_stopped = False  # Flag to check if stop() has been called
 
     def start(self) -> None:

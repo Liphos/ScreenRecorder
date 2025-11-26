@@ -2,7 +2,6 @@
 
 import sys
 
-import pytest
 
 sys.path.append("../recorder")
 from main import (
