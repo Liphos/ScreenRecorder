@@ -3,10 +3,11 @@ The objective is to create easily a dataset of human computer interactions on se
 This repository adopted the one script ideology. Main.py contains all the code, the rest are tests and scripts to determinate optimal parameters.
 
 ## Setup
-The project was run with Python 3.11.9 and managed in a virtual environment with pip. To run this repository, ensure you have all the required dependencies installed by running:
+The project was run with Python 3.11.9 and managed in a virtual environment with uv. To run this repository, ensure you have all the required dependencies installed by running:
 
 ```sh
-pip install -r requirements.txt
+pip install uv
+uv sync
 ```
 
 ## Run

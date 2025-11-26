@@ -1,9 +1,0 @@
-inputs==0.5
-mss==10.1.0
-pynput==1.8.1
-tqdm==4.67.1
-
-# For devs:
-pytest==9.0.1
-mypy==1.18.2
-black==25.11.0

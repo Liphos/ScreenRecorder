@@ -1,3 +1,25 @@
+[project]
+name = "recorder"
+version = "0.1.0"
+description = "Library to record your screen as well as mouse, keyboard and gamepad inputs."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "inputs>=0.5",
+    "mss>=10.1.0",
+    "pynput>=1.8.1",
+    "tqdm>=4.67.1",
+]
+
 [tool.ruff]
 # Set the maximum line length to 79.
 line-length = 100
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18.2",
+    "pytest>=9.0.1",
+    "ruff>=0.14.6",
+    "types-pynput>=1.8.1.20250809",
+    "types-tqdm>=4.67.0.20250809",
+]
