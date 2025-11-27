@@ -5,7 +5,7 @@ on: [push, pull_request]
 jobs:
   ci:
     # Set up operating system
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     # Define job steps
     steps:
@@ -23,9 +23,14 @@ jobs:
         python-version: 3.11
     - name: Install package
       run: uv sync
-    - name: Run headless test
-      uses: GabrielBB/xvfb-action@v1
-      with:
-        run: uv run pytest ./tests --cov=./ --cov-report=xml
+
+    - name: Run tests
+      run: uv run pytest ./tests --cov=./ --cov-report=xml
       env:
         PYTHONPATH: ${{ github.workspace }}
+    # - name: Run headless test
+    #   uses: GabrielBB/xvfb-action@v1
+    #   with:
+    #     run: uv run pytest ./tests --cov=./ --cov-report=xml
+    #   env:
+    #     PYTHONPATH: ${{ github.workspace }}
