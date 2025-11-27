@@ -1,27 +1,17 @@
-name: ci
-
-on: [push, pull_request]
+name: Example
 
 jobs:
-  ci:
-    # Set up operating system
+  uv-example:
+    name: python
     runs-on: ubuntu-latest
 
-    # Define job steps
     steps:
-    - name: Check-out repository
-      uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-    - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        version: 7.0.0
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.11
-    - name: Install package
-      run: uv sync
+      - name: "Set up Python"
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: ".python-version"
 
-    - name: Run tests
-      run: uv run pytest ./tests --cov=./ --cov-report=xml
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
