@@ -644,4 +644,4 @@ if __name__ == "__main__":
         ],
         verbose=True,
     )
-    manager.run_until_stop(start_delay=10)
+    manager.run_until_stop(start_delay=10, timeout=100)
