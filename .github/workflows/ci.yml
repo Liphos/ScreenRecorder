@@ -25,3 +25,5 @@ jobs:
 
     - name: Run tests
       run: uv run pytest ./tests --cov=./ --cov-report=xml
+      env:
+        PYTHONPATH: ${{ github.workspace }}
