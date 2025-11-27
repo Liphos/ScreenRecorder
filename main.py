@@ -379,7 +379,9 @@ class KeyboardRecording(Recorder):
 
     def _join(self) -> None:
         """Wait for the keyboard recording to finish and save the logs."""
-        self.keyboard_listener.join()
+        self.keyboard_listener.join(timeout=10)
+        if not self.keyboard_listener.is_alive():
+            print("WARNING: Keyboard listener did not stop.")
         with open(self.path_output + "keyboard_logs.json", "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
 
@@ -438,7 +440,9 @@ class MouseRecording(Recorder):
 
     def _join(self) -> None:
         """Wait for the mouse recording to finish and save the logs."""
-        self.mouse_listener.join()
+        self.mouse_listener.join(timeout=10)
+        if not self.mouse_listener.is_alive():
+            print("WARNING: Mouse listener did not stop.")
         with open(self.path_output + "mouse_logs.json", "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
 
@@ -472,7 +476,9 @@ class StopRecording(Recorder):
         self.hotkey_listener.stop()
 
     def _join(self) -> None:
-        self.hotkey_listener.join()
+        self.hotkey_listener.join(timeout=10)
+        if not self.hotkey_listener.is_alive():
+            print("WARNING: Hotkey listener did not stop.")
 
 
 class GamepadRecording(Recorder):
@@ -537,6 +543,8 @@ class GamepadRecording(Recorder):
         # Add a timeout here as an exception because the gampad thread won't stop until a gamepad input is detected
         # TODO: Find a way to add a timeout
         self._gamepad_thread.join(timeout=10)
+        if not self._gamepad_thread.is_alive():
+            print("WARNING: Gamepad thread did not stop.")
         # Dump the action logs to a file
         time_to_save = time.time()
         with open(self.path_output + "gamepad_logs.json", "w", encoding="utf-8") as f:
@@ -644,4 +652,4 @@ if __name__ == "__main__":
         ],
         verbose=True,
     )
-    manager.run_until_stop(start_delay=10, timeout=100)
+    manager.run_until_stop(start_delay=10)
