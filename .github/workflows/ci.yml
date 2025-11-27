@@ -5,7 +5,10 @@ on: [push, pull_request]
 jobs:
   ci:
     # Set up operating system
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     # Define job steps
     steps:
@@ -24,13 +27,16 @@ jobs:
     - name: Install package
       run: uv sync
 
-    - name: Run tests
+    - name: Run tests on windows
+      if: ${{ matrix.os == 'windows-latest' }}
       run: uv run pytest ./tests --cov=./ --cov-report=xml
       env:
         PYTHONPATH: ${{ github.workspace }}
-    # - name: Run headless test
-    #   uses: GabrielBB/xvfb-action@v1
-    #   with:
-    #     run: uv run pytest ./tests --cov=./ --cov-report=xml
-    #   env:
-    #     PYTHONPATH: ${{ github.workspace }}
+    - name: Run tests on ubuntu on xvfb
+      if: ${{ matrix.os == 'ubuntu-latest' }}
+      uses: GabrielBB/xvfb-action@v1
+      with:
+        options: "-screen 0 1280x1024x24"
+        run: uv run pytest ./tests --cov=./ --cov-report=xml
+      env:
+        PYTHONPATH: ${{ github.workspace }}
