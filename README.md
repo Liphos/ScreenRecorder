@@ -10,6 +10,8 @@ pip install uv
 uv sync
 ```
 
+The project was tested for linux and windows but not for Macos. However, the libraries used and the code should work on Macos.
+
 ## Run
 To launch the program, you only need to run main.py
 ```sh
