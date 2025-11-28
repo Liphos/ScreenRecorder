@@ -16,7 +16,7 @@ from main import (
 def test_screen_recording():
     manager = Manager(
         [
-            ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6, max_screenshots=20),
+            ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6, max_screenshots=100),
         ],
         path_output="./screenshots/test/",
         print_results=False,
@@ -34,7 +34,7 @@ def test_input_recording():
         path_output="./screenshots/test/",
         print_results=False,
     )
-    manager.run_until_stop(timeout=5)
+    manager.run_until_stop(timeout=10)
 
 
 def test_gamepad_recording():
@@ -45,7 +45,7 @@ def test_gamepad_recording():
         path_output="./screenshots/test/",
         print_results=False,
     )
-    manager.run_until_stop(timeout=5)
+    manager.run_until_stop(timeout=10)
 
 
 def test_external_stop():
@@ -56,7 +56,7 @@ def test_external_stop():
         path_output="./screenshots/test/",
         print_results=False,
     )
-    manager.run_until_stop(timeout=150)
+    manager.run_until_stop(timeout=10)
 
 
 def test_combined_recording():
@@ -71,4 +71,4 @@ def test_combined_recording():
         path_output="./screenshots/test/",
         print_results=False,
     )
-    manager.run_until_stop(timeout=5)
+    manager.run_until_stop(timeout=10)
