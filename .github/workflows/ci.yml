@@ -5,17 +5,21 @@ on: [push, pull_request]
 jobs:
   ci:
     # Set up operating system
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
 
     # Define job steps
     steps:
     - name: Check-out repository
-      uses: actions/checkout@v5
+      uses: actions/checkout@v4
 
-    - name: Install the latest version of uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        version: 7.0.0
+      # Step 2: Install uv
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+  
+      
     - name: Set up Python 3.11
       uses: actions/setup-python@v2
       with:
@@ -23,5 +27,16 @@ jobs:
     - name: Install package
       run: uv sync
 
-    - name: Run tests
+    - name: Run tests on windows
+      if: ${{ matrix.os == 'windows-latest' }}
       run: uv run pytest ./tests --cov=./ --cov-report=xml
+      env:
+        PYTHONPATH: ${{ github.workspace }}
+    - name: Run tests on ubuntu on xvfb
+      if: ${{ matrix.os == 'ubuntu-latest' }}
+      uses: GabrielBB/xvfb-action@v1
+      with:
+        options: "-screen 0 1280x1024x24"
+        run: uv run pytest ./tests --cov=./ --cov-report=xml
+      env:
+        PYTHONPATH: ${{ github.workspace }}

@@ -2,7 +2,6 @@
 
 import sys
 
-
 sys.path.append("../recorder")
 from main import (
     GamepadRecording,
@@ -17,9 +16,7 @@ from main import (
 def test_screen_recording():
     manager = Manager(
         [
-            ScreenRecording(
-                n_processes=3, aimed_fps=10, compression_rate=6, max_screenshots=100
-            ),
+            ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6, max_screenshots=100),
         ],
         path_output="./screenshots/test/",
         print_results=False,
@@ -54,9 +51,7 @@ def test_gamepad_recording():
 def test_external_stop():
     manager = Manager(
         [
-            ScreenRecording(
-                n_processes=3, aimed_fps=10, compression_rate=6, max_screenshots=1000
-            ),
+            ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6, max_screenshots=1000),
         ],
         path_output="./screenshots/test/",
         print_results=False,
@@ -67,9 +62,7 @@ def test_external_stop():
 def test_combined_recording():
     manager = Manager(
         [
-            ScreenRecording(
-                n_processes=3, aimed_fps=10, compression_rate=6, max_screenshots=1000
-            ),
+            ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6, max_screenshots=1000),
             KeyboardRecording(),
             MouseRecording(),
             StopRecording(),

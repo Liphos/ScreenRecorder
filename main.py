@@ -199,7 +199,9 @@ class ScreenRecording(Recorder):
         self.max_screenshots = max_screenshots
         self.allowed_n_images_delayed = allowed_n_images_delayed
         # Queues
-        self._list_queues: list[Queue] = [Queue() for _ in range(n_processes)]
+        self._list_queues: list[Queue] = [
+            Queue(self.allowed_n_images_delayed) for _ in range(n_processes)
+        ]
         self._out_queue: Queue = Queue()
         self._stop_flag = Value(ctypes.c_bool, False)
 
@@ -258,7 +260,7 @@ class ScreenRecording(Recorder):
     def _should_stop(self) -> bool:
         """Call to stop if grabbing process has stopped or if the number of images accumulated in the saving queues exceeds the allowed number."""
         assert self._p_grab is not None, "Grabbing process has not started. Call start() first."
-        if any(queue.qsize() > self.allowed_n_images_delayed for queue in self._list_queues):
+        if any(queue.full() for queue in self._list_queues):
             print(
                 f"Stopping recording because the number of images accumulated in the saving queues exceeds the allowed number: allowed_n_images_delayed={self.allowed_n_images_delayed}. Consider increasing the number of processes or decreasing the aimed FPS."
             )
@@ -379,7 +381,9 @@ class KeyboardRecording(Recorder):
 
     def _join(self) -> None:
         """Wait for the keyboard recording to finish and save the logs."""
-        self.keyboard_listener.join()
+        self.keyboard_listener.join(timeout=10)
+        if self.keyboard_listener.is_alive():
+            print("WARNING: Keyboard listener did not stop.")
         with open(self.path_output + "keyboard_logs.json", "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
 
@@ -438,7 +442,9 @@ class MouseRecording(Recorder):
 
     def _join(self) -> None:
         """Wait for the mouse recording to finish and save the logs."""
-        self.mouse_listener.join()
+        self.mouse_listener.join(timeout=10)
+        if self.mouse_listener.is_alive():
+            print("WARNING: Mouse listener did not stop.")
         with open(self.path_output + "mouse_logs.json", "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
 
@@ -472,7 +478,9 @@ class StopRecording(Recorder):
         self.hotkey_listener.stop()
 
     def _join(self) -> None:
-        self.hotkey_listener.join()
+        self.hotkey_listener.join(timeout=10)
+        if self.hotkey_listener.is_alive():
+            print("WARNING: Hotkey listener did not stop.")
 
 
 class GamepadRecording(Recorder):
@@ -537,6 +545,8 @@ class GamepadRecording(Recorder):
         # Add a timeout here as an exception because the gampad thread won't stop until a gamepad input is detected
         # TODO: Find a way to add a timeout
         self._gamepad_thread.join(timeout=10)
+        if self._gamepad_thread.is_alive():
+            print("WARNING: Gamepad thread did not stop.")
         # Dump the action logs to a file
         time_to_save = time.time()
         with open(self.path_output + "gamepad_logs.json", "w", encoding="utf-8") as f:
