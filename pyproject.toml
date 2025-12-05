@@ -7,8 +7,10 @@ requires-python = ">=3.11"
 dependencies = [
     "inputs>=0.5",
     "mss>=10.1.0",
+    "pip>=25.3",
     "pynput>=1.8.1",
     "tqdm>=4.67.1",
+    "uv>=0.9.15",
 ]
 
 [tool.ruff]
