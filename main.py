@@ -96,7 +96,13 @@ def _save(
     to_png = mss.tools.to_png
     start_time = time.time()
     while "there are screenshots":
-        img = queue.get(timeout=60)
+        try:
+            img = queue.get(timeout=60)
+        except Empty:
+            print(
+                f"WARNING: Saving worker {process_id} queue is empty. Did the grabbing process stop?"
+            )
+            break
         if img is None:
             break
 
@@ -108,7 +114,7 @@ def _save(
         )
         number += 1
     if verbose:
-        print(f"Saving worker :{process_id} finished and creating logs.")
+        print(f"Saving worker {process_id} finished and creating logs.")
     out_log = {
         "log": "saving",
         "id": process_id,
@@ -282,6 +288,13 @@ class ScreenRecording(Recorder):
 
     def _join(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """Stop the screen recording."""
+        logs: List[Dict[str, Any]] = []
+        while len(logs) < self.n_processes + 1:
+            # Wait for all logs to be received
+            log = self._out_queue.get(timeout=60)
+            logs.append(log)
+
+        # After all logs are received, the processes should have been finished
         if self._p_grab is not None:
             self._p_grab.join()
         else:
@@ -291,7 +304,8 @@ class ScreenRecording(Recorder):
         # Close the queues
         for queue in self._list_queues:
             queue.close()
-        grab_log, saving_logs = self._get_logs()
+        self._out_queue.close()
+        grab_log, saving_logs = self._get_logs(logs)
         self._save_timestamps(grab_log)
         if self.print_results:
             self._print_results(grab_log, saving_logs)
@@ -306,27 +320,19 @@ class ScreenRecording(Recorder):
                 else:
                     f.write(f"{timestamp:.6f}\n")
 
-    def _get_logs(self) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
-        log_caught = 0
+    def _get_logs(self, logs: List[Dict[str, Any]]) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         saving_logs: List[Dict[str, Any]] = []
         grab_log: Dict[str, Any] = {}
-        while log_caught < self.n_processes + 1:
-            try:
-                log = self._out_queue.get(timeout=10)
-                log_caught += 1
-                if log["log"] == "grabbing":
-                    grab_log = log
-                    assert grab_log != {}, (
-                        "Multiple grabbing logs means multiple screen recording processes. Only one is expected."
-                    )
-                elif log["log"] == "saving":
-                    saving_logs.append(log)
-                else:
-                    raise ValueError(f"Unknown log: {log}")
-            except Empty as esc:
-                raise Empty(
-                    "Log queue not containing all logs. It is possible one process failed."
-                ) from esc
+        for log in logs:
+            if log["log"] == "grabbing":
+                assert not grab_log, (
+                    "Multiple grabbing logs means multiple screen recording processes. Only one is expected."
+                )
+                grab_log = log
+            elif log["log"] == "saving":
+                saving_logs.append(log)
+            else:
+                raise ValueError(f"Unknown log: {log}")
         return (grab_log, saving_logs)
 
     def _print_results(self, grab_log: Dict[str, Any], saving_logs: List[Dict[str, Any]]) -> None:
