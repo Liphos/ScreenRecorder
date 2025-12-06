@@ -68,6 +68,8 @@ def _grab(
         "timestamps": all_timestamps,
     }
     _out_queue.put(out_log)
+    if verbose:
+        print("Grabbing worker finished and output logs.")
 
 
 def _save(
@@ -106,7 +108,7 @@ def _save(
         )
         number += 1
     if verbose:
-        print(f"Saving worker :{process_id} finished and output logs.")
+        print(f"Saving worker :{process_id} finished and creating logs.")
     out_log = {
         "log": "saving",
         "id": process_id,
@@ -114,6 +116,8 @@ def _save(
         "time": time.time() - start_time,
     }
     _out_queue.put(out_log)
+    if verbose:
+        print(f"Saving worker {process_id} sending logs to main process.")
 
 
 class Recorder(ABC):
@@ -141,11 +145,16 @@ class Recorder(ABC):
         self._start()
 
     def should_stop(self) -> bool:
-        return self._should_stop()
+        should_stop = self._should_stop()
+        if self.verbose and should_stop:
+            print(f"{self.__class__.__name__} called for stop.")
+        return should_stop
 
     def stop(self) -> None:
         self._stop()
         self.is_stopped = True
+        if self.verbose:
+            print(f"{self.__class__.__name__} recording stop flag set.")
 
     def join(self) -> Any:
         assert self.is_stopped, "Recorder is not stopped. Call stop() first."
