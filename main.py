@@ -6,6 +6,7 @@ import json
 import os
 import threading
 import time
+import warnings
 from abc import ABC, abstractmethod
 from multiprocessing import Process, Queue, Value
 from queue import Empty
@@ -15,6 +16,21 @@ import mss
 import mss.tools
 from inputs import UnpluggedError, devices, get_gamepad
 from pynput import keyboard, mouse
+
+
+def colorful_warning(message, category, filename, lineno, line=None) -> str:
+    # ANSI escape codes for colors
+    yellow = "\033[93m"
+    red = "\033[91m"
+    reset = "\033[0m"
+    if isinstance(category, RuntimeWarning):
+        return f"{red}ERROR: {message}{reset}\n"
+    else:
+        return f"{yellow}WARNING: {message}{reset}\n"
+
+
+# Override the default warning format
+warnings.formatwarning = colorful_warning
 
 
 def _grab(
@@ -100,8 +116,9 @@ def _save(
         try:
             img = queue.get(timeout=60)
         except Empty:
-            print(
-                f"WARNING: Saving worker {process_id} queue is empty. Did the grabbing process stop?"
+            warnings.warn(
+                f"WARNING: Saving worker {process_id} queue is empty. Did the grabbing process stop?",
+                RuntimeWarning,
             )
             break
         if img is None:
@@ -277,8 +294,9 @@ class ScreenRecording(Recorder):
         """Call to stop if grabbing process has stopped or if the number of images accumulated in the saving queues exceeds the allowed number."""
         assert self._p_grab is not None, "Grabbing process has not started. Call start() first."
         if any(queue.full() for queue in self._list_queues):
-            print(
-                f"Stopping recording because the number of images accumulated in the saving queues exceeds the allowed number: allowed_n_images_delayed={self.allowed_n_images_delayed}. Consider increasing the number of processes or decreasing the aimed FPS."
+            warnings.warn(
+                f"WARNING: Out of memory: Stopping recording because the number of images accumulated in the saving queues exceeds the allowed number: allowed_n_images_delayed={self.allowed_n_images_delayed}. Consider increasing the number of processes or decreasing the aimed FPS.",
+                RuntimeWarning,
             )
             return True
         return not self._p_grab.is_alive()
@@ -296,9 +314,10 @@ class ScreenRecording(Recorder):
                 log = self._out_queue.get(timeout=60)
                 logs.append(log)
             except Empty:
-                print(
+                warnings.warn(
                     f"WARNING: Log queue waiting out after receiving {len(logs)}/{self.n_processes + 1} logs. "
-                    "One saving process might be still running or have failed."
+                    + "One saving process might be still running or have failed.",
+                    RuntimeWarning,
                 )
         print(f"All {len(logs)} logs received.")
         # After all logs are received, the processes should have been finished
@@ -405,7 +424,7 @@ class KeyboardRecording(Recorder):
         """Wait for the keyboard recording to finish and save the logs."""
         self.keyboard_listener.join(timeout=10)
         if self.keyboard_listener.is_alive():
-            print("WARNING: Keyboard listener did not stop.")
+            warnings.warn("WARNING: Keyboard listener did not stop.")
         with open(self.path_output + "keyboard_logs.json", "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
 
@@ -466,7 +485,7 @@ class MouseRecording(Recorder):
         """Wait for the mouse recording to finish and save the logs."""
         self.mouse_listener.join(timeout=10)
         if self.mouse_listener.is_alive():
-            print("WARNING: Mouse listener did not stop.")
+            warnings.warn("WARNING: Mouse listener did not stop.")
         with open(self.path_output + "mouse_logs.json", "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
 
@@ -502,7 +521,7 @@ class StopRecording(Recorder):
     def _join(self) -> None:
         self.hotkey_listener.join(timeout=10)
         if self.hotkey_listener.is_alive():
-            print("WARNING: Hotkey listener did not stop.")
+            warnings.warn("WARNING: Hotkey listener did not stop.")
 
 
 class GamepadRecording(Recorder):
@@ -568,7 +587,7 @@ class GamepadRecording(Recorder):
         # TODO: Find a way to add a timeout
         self._gamepad_thread.join(timeout=10)
         if self._gamepad_thread.is_alive():
-            print("WARNING: Gamepad thread did not stop.")
+            warnings.warn("WARNING: Gamepad thread did not stop.")
         # Dump the action logs to a file
         time_to_save = time.time()
         with open(self.path_output + "gamepad_logs.json", "w", encoding="utf-8") as f:
@@ -620,10 +639,10 @@ class Manager:
             if exception is None:
                 remaining_recorders.append(recorder)
             else:
-                print(
+                warnings.warn(
                     f"WARNING: Recorder {recorder.__class__.__name__} is not available: {exception}"
+                    + "This recorder will not be used."
                 )
-                print("This recorder will not be used.")
         self.list_recorders = remaining_recorders
         # Start the recorders that are available
         for recorder in self.list_recorders:
@@ -794,7 +813,9 @@ def main() -> None:
     if not args.no_gamepad:
         recorders.append(GamepadRecording())
     if len(recorders) == 0:
-        raise ValueError("No recording type specified. Add at least one recording type.")
+        raise ValueError(
+            "Argument error: No recording type specified. Add at least one recording type."
+        )
 
     # Create and run manager
     manager = Manager(
