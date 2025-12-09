@@ -2,7 +2,7 @@
 
 import sys
 
-sys.path.append("../recorder")
+sys.path.append("./")
 from main import (
     GamepadRecording,
     KeyboardRecording,

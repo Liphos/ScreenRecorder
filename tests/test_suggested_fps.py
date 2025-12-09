@@ -2,8 +2,7 @@
 
 import sys
 
-
-sys.path.append("../recorder")
+sys.path.append("./")
 from suggested_fps import main
 
 
