@@ -292,9 +292,15 @@ class ScreenRecording(Recorder):
         logs: List[Dict[str, Any]] = []
         while len(logs) < self.n_processes + 1:
             # Wait for all logs to be received
-            log = self._out_queue.get(timeout=60)
-            logs.append(log)
-
+            try:
+                log = self._out_queue.get(timeout=60)
+                logs.append(log)
+            except Empty:
+                print(
+                    f"WARNING: Log queue waiting out after receiving {len(logs)}/{self.n_processes + 1} logs. "
+                    "One saving process might be still running or have failed."
+                )
+        print(f"All {len(logs)} logs received.")
         # After all logs are received, the processes should have been finished
         if self._p_grab is not None:
             self._p_grab.join()
