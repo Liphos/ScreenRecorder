@@ -1,5 +1,6 @@
 """Record the screen, mouse, keyboard and controller inputs with multiprocessing."""
 
+import argparse
 import ctypes
 import json
 import os
@@ -657,16 +658,147 @@ class Manager:
         self.join()
 
 
-if __name__ == "__main__":
-    # Start the screen recording
-    manager = Manager(
-        [
-            ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6),
-            KeyboardRecording(),
-            MouseRecording(),
-            StopRecording(),
-            GamepadRecording(),
-        ],
-        verbose=True,
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Record screen, mouse, keyboard and controller inputs.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    manager.run_until_stop(start_delay=10)
+
+    # What inputs to record
+    recording_group = parser.add_argument_group("Input Recording Options")
+    recording_group.add_argument(
+        "--no-screen", action="store_true", help="Disable screen recording"
+    )
+    recording_group.add_argument(
+        "--no-keyboard", action="store_true", help="Disable keyboard recording"
+    )
+    recording_group.add_argument("--no-mouse", action="store_true", help="Disable mouse recording")
+    recording_group.add_argument(
+        "--no-gamepad", action="store_true", help="Disable gamepad recording"
+    )
+
+    # Where to save the recordings
+    output_group = parser.add_argument_group("Output Settings")
+    output_group.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default="./screenshots/",
+        help="Directory to save recordings",
+    )
+    output_group.add_argument(
+        "--no-print-results",
+        action="store_true",
+        help="Disable printing performance results",
+    )
+    output_group.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose output for debugging"
+    )
+
+    # Screen recording settings
+    screen_group = parser.add_argument_group(
+        "Screen Recording Settings. Only used if screen recording is enabled."
+    )
+    screen_group.add_argument(
+        "--n-processes",
+        type=int,
+        default=2,
+        help="Number of processes for saving screenshots",
+    )
+    screen_group.add_argument(
+        "--fps",
+        type=int,
+        default=10,
+        help="Target FPS for screen recording(Recommended: 10-20). Lower this value when the tool fails to screenshot at the desired FPS.",
+    )
+    screen_group.add_argument(
+        "--compression",
+        type=int,
+        default=6,
+        choices=range(0, 10),
+        metavar="[0-9]",
+        help="PNG compression rate (0=none, 9=max). Higher values means smaller files but longer saving time.",
+    )
+    screen_group.add_argument(
+        "--max-screenshots",
+        type=int,
+        default=200_000,
+        help="Stop condition: Maximum number of screenshots before stopping",
+    )
+    screen_group.add_argument(
+        "--queue-size",
+        type=int,
+        default=100,
+        help="Allowed number of images in queue before auto-stop. Used to avoid out of memory errors.",
+    )
+
+    # Hotkey settings
+    hotkey_group = parser.add_argument_group("Global Hotkey Settings")
+    hotkey_group.add_argument(
+        "--hotkey",
+        type=str,
+        default="<ctrl>+<shift>+<delete>",
+        help="Stop condition: Hotkey to stop recording (pynput format)",
+    )
+
+    # Timing settings
+    timing_group = parser.add_argument_group("Timing Settings")
+    timing_group.add_argument(
+        "--start-delay",
+        type=float,
+        default=2.0,
+        help="Delay in seconds before starting recording",
+    )
+    timing_group.add_argument(
+        "--timeout",
+        type=float,
+        default=150_000,
+        help="Stop condition: Timeout in seconds for recording from start",
+    )
+
+    return parser.parse_args()
+
+
+def main() -> None:
+    """Main entry point."""
+    args = parse_args()
+
+    # Build list of recorders based on arguments
+    recorders: List[Recorder] = []
+
+    # Always add stop recording for hotkey support
+    recorders.append(StopRecording(hotkey=args.hotkey))
+
+    # Add recorders based on flags
+    if not args.no_screen:
+        recorders.append(
+            ScreenRecording(
+                n_processes=args.n_processes,
+                aimed_fps=args.fps,
+                compression_rate=args.compression,
+                max_screenshots=args.max_screenshots,
+                allowed_n_images_delayed=args.queue_size,
+            )
+        )
+    if not args.no_keyboard:
+        recorders.append(KeyboardRecording())
+    if not args.no_mouse:
+        recorders.append(MouseRecording())
+    if not args.no_gamepad:
+        recorders.append(GamepadRecording())
+    if len(recorders) == 0:
+        raise ValueError("No recording type specified. Add at least one recording type.")
+
+    # Create and run manager
+    manager = Manager(
+        recorders,
+        path_output=args.output,
+        print_results=not args.no_print_results,
+        verbose=args.verbose,
+    )
+    manager.run_until_stop(start_delay=args.start_delay, timeout=args.timeout)
+
+
+if __name__ == "__main__":
+    main()
