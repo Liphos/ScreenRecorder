@@ -24,6 +24,40 @@ def test_screen_recording():
     manager.run_until_stop(timeout=100)
 
 
+def test_screen_recording_webp():
+    manager = Manager(
+        [
+            ScreenRecording(
+                n_processes=3,
+                aimed_fps=10,
+                compression_rate=6,
+                max_screenshots=30,
+                format_image="webp",
+            ),
+        ],
+        path_output="./screenshots/test/",
+        print_results=False,
+    )
+    manager.run_until_stop(timeout=100)
+
+
+def test_screen_recording_jpg():
+    manager = Manager(
+        [
+            ScreenRecording(
+                n_processes=3,
+                aimed_fps=10,
+                compression_rate=6,
+                max_screenshots=30,
+                format_image="jpg",
+            ),
+        ],
+        path_output="./screenshots/test/",
+        print_results=False,
+    )
+    manager.run_until_stop(timeout=100)
+
+
 def test_input_recording():
     manager = Manager(
         [

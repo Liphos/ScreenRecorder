@@ -2,6 +2,7 @@ import time
 from threading import Thread
 
 import mss
+from PIL import Image
 
 
 def measure_fps() -> None:
@@ -19,9 +20,11 @@ def measure_fps() -> None:
     fps = 0
     last_time = time.time()
 
-    while time.time() - last_time < 10:
-        sct.grab(mon)
+    while time.time() - last_time < 2:
+        img = sct.grab(mon)
         fps += 1
+    Image.frombytes("RGB", img.size, img.rgb).save("test.webp", "WEBP")
+    mss.tools.to_png(img.rgb, img.size, output="test.png", level=9)
     print(fps / 10)
 
 

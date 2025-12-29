@@ -10,11 +10,12 @@ import warnings
 from abc import ABC, abstractmethod
 from multiprocessing import Process, Queue, Value
 from queue import Empty
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import mss
 import mss.tools
 from inputs import UnpluggedError, devices, get_gamepad
+from PIL import Image
 from pynput import keyboard, mouse
 
 
@@ -96,6 +97,7 @@ def _save(
     compression_rate: int,
     process_id: int,
     n_processes: int,
+    format_image: str = "png",
     verbose: bool = False,
 ) -> None:
     """Process that saves the screenshots to the disk.
@@ -106,11 +108,29 @@ def _save(
         compression_rate (int): Compression rate for the screenshots.
         process_id (int): ID of the process.
         n_processes (int): Number of processes.
+        format_image (str, optional): Format to save the screenshots to. Use Pillow's available formats(eg: "png", "jpg", "webp"). Defaults to "png".
         verbose (bool, optional): Control how much information is printed. Useful for debugging. Defaults to False.
     """
+
+    def save_to_disk(img: mss.screenshot.ScreenShot) -> None:
+        """Save the screenshot to the disk."""
+        output = path_output + f"file_{number * n_processes + process_id}." + format_image
+        if format_image == "png":
+            mss.tools.to_png(img.rgb, img.size, level=compression_rate, output=output)
+        elif format_image == "jpg":
+            Image.frombytes("RGB", img.size, img.rgb).save(
+                output,
+                "JPEG",
+            )
+        elif format_image == "webp":
+            Image.frombytes("RGB", img.size, img.rgb).save(
+                output,
+                "WEBP",
+            )
+        else:
+            raise ValueError(f"Invalid format: {format_image}")
+
     number = 0
-    output = path_output + "file_{}.png"
-    to_png = mss.tools.to_png
     start_time = time.time()
     while "there are screenshots":
         try:
@@ -123,13 +143,7 @@ def _save(
             break
         if img is None:
             break
-
-        to_png(
-            img.rgb,
-            img.size,
-            output=output.format(number * n_processes + process_id),
-            level=compression_rate,
-        )
+        save_to_disk(img)
         number += 1
     if verbose:
         print(f"Saving worker {process_id} finished and creating logs.")
@@ -211,6 +225,7 @@ class ScreenRecording(Recorder):
         self,
         n_processes: int = 2,
         aimed_fps: int = 10,
+        format_image: str = "png",
         compression_rate: int = 6,
         max_screenshots: int = 100_000,
         allowed_n_images_delayed: int = 100,
@@ -220,7 +235,8 @@ class ScreenRecording(Recorder):
         Args:
             n_processes (int): Number of processes to use for saving the screenshots. For high compression rate, it is recommended to use more processes. You can use measure_fps to adjust.
             aimed_fps (int): Aimed FPS for the screen recording. Lower this value when the tool fails to screenshot at the desired FPS.
-            compression_rate (int, optional): Compression rate for the screenshots. Higher values means smaller files and longer saving time. Defaults to 6.
+            format_image (str, optional): Format to save the screenshots to. Use Pillow's available formats(eg: "png", "jpg", "webp"). Defaults to "png".
+            compression_rate (int, optional): Compression rate for the screenshots. Higher values means smaller files and longer saving time. Only applies to PNG format. Defaults to 6.
             max_screenshots (int, optional): Option to stop recording after a certain number of screenshots is taken. Defaults to 100_000.
             allowed_n_images_delayed (int, optional): Allowed number of images accumulated in the queue. If it exceeds, the process will call stop to protect current colleted data. Defaults to 100.
         """
@@ -228,6 +244,7 @@ class ScreenRecording(Recorder):
         super().__init__()
         self.n_processes = n_processes
         self.aimed_fps = aimed_fps
+        self.format_image = format_image
         self.compression_rate = compression_rate
         self.max_screenshots = max_screenshots
         self.allowed_n_images_delayed = allowed_n_images_delayed
@@ -281,6 +298,7 @@ class ScreenRecording(Recorder):
                     self.compression_rate,
                     id,
                     self.n_processes,
+                    self.format_image,
                     self.verbose,
                 ),
             )
