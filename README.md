@@ -29,3 +29,9 @@ The performance for the 2 machines are:
 I briefly tested the script using mss to a script in C++, thanks to a [post](https://gist.github.com/prashanthrajagopal/05f8ad157ece964d8c4d?permalink_comment_id=4790784#gistcomment-4790784). When compiling this simple script, I obtained around **30** fps on the MSI laptop, which is only 5fps more than the python script.
 
 A great speed improvement would be to leverage OBS or other screen recording tool as they are much more efficient(can reach **60** fps easily). However it implies some limitation and more development time compared to python.
+
+
+## Additionnal tools
+To convert png images to webp: ```ffmpeg -i <file_name.png> -q:v 90 "<new_image_name>.webp"``` where -q:v 90 is the quality ratio(higher is better)
+
+In term of efficiency of compression, Jpeg XL seems to be above the rest but is not always supported. Otherwise jpeg or webp are also very powerful. When checking for dataset of images for diffusion models, I found some png or jpegs. I think both can be used however less artefacts are better.
