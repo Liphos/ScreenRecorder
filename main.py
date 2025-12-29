@@ -758,7 +758,7 @@ def parse_args() -> argparse.Namespace:
     screen_group.add_argument(
         "--compression",
         type=int,
-        default=6,
+        default=9,
         choices=range(0, 10),
         metavar="[0-9]",
         help="PNG compression rate (0=none, 9=max). Higher values means smaller files but longer saving time.",
