@@ -756,6 +756,13 @@ def parse_args() -> argparse.Namespace:
         help="Target FPS for screen recording(Recommended: 10-20). Lower this value when the tool fails to screenshot at the desired FPS.",
     )
     screen_group.add_argument(
+        "--format",
+        type=str,
+        default="png",
+        choices=["png", "jpg", "webp"],
+        help='Format to save the screenshots to. Use Pillow\'s available formats(eg: "png", "jpg", "webp").',
+    )
+    screen_group.add_argument(
         "--compression",
         type=int,
         default=9,
