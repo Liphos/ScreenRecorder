@@ -61,14 +61,8 @@ The screen recording offer different possible format: PNG, JPG and WEBP. PNG is 
 | `--start-delay` | Delay in seconds before starting recording | ≥0 | `2.0` |
 | `--timeout` | Maximum recording duration in seconds | ≥0 | `150000` |
 
-### Image Format Notes
-The script currently supports PNG format with configurable compression. The compression level affects:
-- **Level 0**: No compression (fastest saving, largest files)
-- **Level 9**: Maximum compression (slowest saving, smallest files)
-
-For high FPS recording with high compression, increase `--n-processes` to parallelize the workload.
 ## Hardware Comparison
-The project was mainly tested on two different windows machine. On both machines, I compared the performance when having cursor opened(to launch the script) as well as tbe light 2D game [Zombotron](https://store.steampowered.com/app/664830/Zombotron/). The script was launched with 3 saving processes and a compression ratio of 6. 
+The project was mainly tested on two different windows machine. On both machines, I compared the performance when having cursor opened(to launch the script) as well as the light 2D game [Zombotron](https://store.steampowered.com/app/664830/Zombotron/). The script was launched with 3 saving processes and a compression ratio of 6. 
 
 The performance for the 2 machines are:
 - **13.5** fps: On an Omen Laptop 15-dc1xxx, with a i5-9300H processor, GTX 1660Ti, 16go Ram at 2667Mhz and a 1920x1080 screen size.
