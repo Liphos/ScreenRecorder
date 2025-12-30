@@ -38,6 +38,7 @@ The script accepts the following command-line arguments:
 | `-v, --verbose` | Enable verbose output for debugging | Disabled |
 
 ### Screen Recording Settings
+The screen recording offer different possible format: PNG, JPG and WEBP. PNG is a lossless compression unlike the others. In order of speed, JPG is the faster, png is 10 slower and webp 40 slower. 
 | Parameter | Description | Range | Default |
 |-----------|-------------|-------|---------|
 | `--n-processes` | Number of parallel processes for saving screenshots. Increase for higher compression rates. | ≥1 | `2` |

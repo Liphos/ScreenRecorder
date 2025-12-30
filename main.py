@@ -95,6 +95,8 @@ def _save(
     _out_queue: Queue,
     path_output: str,
     compression_rate: int,
+    quality: int,
+    downsample: int,
     process_id: int,
     n_processes: int,
     format_image: str,
@@ -105,7 +107,9 @@ def _save(
         queue (Queue): Queue to get the screenshots from.
         _out_queue (Queue): Queue to send the logs to at the end.
         path_output (str): Path to save the screenshots to.
-        compression_rate (int): Compression rate for the screenshots.
+        compression_rate (int): Compression rate for the screenshots. Only applies to PNG format.
+        quality (int): Quality for the screenshots. Only applies to JPG and WEBP formats.
+        downsample (int): Downsample factor for the screenshots.
         process_id (int): ID of the process.
         n_processes (int): Number of processes.
         format_image (str): Format to save the screenshots to. Use Pillow's available formats(eg: "png", "jpg", "webp").
@@ -115,18 +119,29 @@ def _save(
     def save_to_disk(img: mss.screenshot.ScreenShot, number: int) -> None:
         """Save the screenshot to the disk."""
         output = path_output + f"file_{number * n_processes + process_id}." + format_image
-        if format_image == "png":
+        if format_image == "png" and downsample == 1:
             mss.tools.to_png(img.rgb, img.size, level=compression_rate, output=output)
+        elif format_image == "png" and downsample != 1:
+            img_pil = Image.frombytes("RGB", img.size, img.rgb)
+            img_pil.thumbnail(
+                (img.size[0] // downsample, img.size[1] // downsample),
+                Image.Resampling.LANCZOS,
+            )
+            img_pil.save(output, "PNG", compress_level=compression_rate)
         elif format_image == "jpg":
-            Image.frombytes("RGB", img.size, img.rgb).save(
-                output,
-                "JPEG",
+            img_pil = Image.frombytes("RGB", img.size, img.rgb)
+            img_pil.thumbnail(
+                (img.size[0] // downsample, img.size[1] // downsample),
+                Image.Resampling.LANCZOS,
             )
+            img_pil.save(output, "JPEG", quality=quality)
         elif format_image == "webp":
-            Image.frombytes("RGB", img.size, img.rgb).save(
-                output,
-                "WEBP",
+            img_pil = Image.frombytes("RGB", img.size, img.rgb)
+            img_pil.thumbnail(
+                (img.size[0] // downsample, img.size[1] // downsample),
+                Image.Resampling.LANCZOS,
             )
+            img_pil.save(output, "WEBP", quality=quality)
         else:
             raise ValueError(f"Invalid format: {format_image}")
 
@@ -226,7 +241,9 @@ class ScreenRecording(Recorder):
         n_processes: int = 2,
         aimed_fps: int = 10,
         format_image: str = "png",
-        compression_rate: int = 6,
+        compression_rate: int = 9,
+        quality: int = 95,
+        downsample: int = 1,
         max_screenshots: int = 100_000,
         allowed_n_images_delayed: int = 100,
     ) -> None:
@@ -236,7 +253,9 @@ class ScreenRecording(Recorder):
             n_processes (int): Number of processes to use for saving the screenshots. For high compression rate, it is recommended to use more processes. You can use measure_fps to adjust.
             aimed_fps (int): Aimed FPS for the screen recording. Lower this value when the tool fails to screenshot at the desired FPS.
             format_image (str, optional): Format to save the screenshots to. Use Pillow's available formats(eg: "png", "jpg", "webp"). Defaults to "png".
-            compression_rate (int, optional): Compression rate for the screenshots. Higher values means smaller files and longer saving time. Only applies to PNG format. Defaults to 6.
+            compression_rate (int, optional): Compression rate for the screenshots. Higher values means smaller files and longer saving time. Only applies to PNG format. Defaults to 9.
+            quality (int, optional): Quality for the screenshots. Only applies to JPG and WEBP formats. Defaults to 95.
+            downsample (int, optional): Downsample factor for the screenshots. 1 means no downsampling. 2 means half the size. 3 means one third the size. etc. Defaults to 1.
             max_screenshots (int, optional): Option to stop recording after a certain number of screenshots is taken. Defaults to 100_000.
             allowed_n_images_delayed (int, optional): Allowed number of images accumulated in the queue. If it exceeds, the process will call stop to protect current colleted data. Defaults to 100.
         """
@@ -246,6 +265,8 @@ class ScreenRecording(Recorder):
         self.aimed_fps = aimed_fps
         self.format_image = format_image
         self.compression_rate = compression_rate
+        self.quality = quality
+        self.downsample = downsample
         self.max_screenshots = max_screenshots
         self.allowed_n_images_delayed = allowed_n_images_delayed
         # Queues
@@ -296,6 +317,8 @@ class ScreenRecording(Recorder):
                     self._out_queue,
                     self.path_output,
                     self.compression_rate,
+                    self.quality,
+                    self.downsample,
                     id,
                     self.n_processes,
                     self.format_image,
@@ -771,6 +794,20 @@ def parse_args() -> argparse.Namespace:
         help="PNG compression rate (0=none, 9=max). Higher values means smaller files but longer saving time.",
     )
     screen_group.add_argument(
+        "--quality",
+        type=int,
+        default=95,
+        choices=range(0, 100),
+        metavar="[0-100]",
+        help="Quality for the screenshots. Only applies to JPG and WEBP formats. Higher values means better quality but slower saving time.",
+    )
+    screen_group.add_argument(
+        "--downsample",
+        type=int,
+        default=1,
+        help="Downsample factor for the screenshots. 1 means no downsampling. 2 means half the size. 3 means one third the size. etc.",
+    )
+    screen_group.add_argument(
         "--max-screenshots",
         type=int,
         default=200_000,
@@ -828,6 +865,8 @@ def main() -> None:
                 aimed_fps=args.fps,
                 format_image=args.format,
                 compression_rate=args.compression,
+                quality=args.quality,
+                downsample=args.downsample,
                 max_screenshots=args.max_screenshots,
                 allowed_n_images_delayed=args.queue_size,
             )

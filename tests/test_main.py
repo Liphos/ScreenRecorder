@@ -30,7 +30,7 @@ def test_screen_recording_webp():
             ScreenRecording(
                 n_processes=3,
                 aimed_fps=10,
-                compression_rate=6,
+                quality=95,
                 max_screenshots=30,
                 format_image="webp",
             ),
@@ -47,9 +47,27 @@ def test_screen_recording_jpg():
             ScreenRecording(
                 n_processes=3,
                 aimed_fps=10,
-                compression_rate=6,
+                quality=95,
                 max_screenshots=30,
                 format_image="jpg",
+            ),
+        ],
+        path_output="./screenshots/test/",
+        print_results=False,
+    )
+    manager.run_until_stop(timeout=100)
+
+
+def test_screen_recording_downsample():
+    manager = Manager(
+        [
+            ScreenRecording(
+                n_processes=3,
+                aimed_fps=10,
+                compression_rate=9,
+                max_screenshots=30,
+                downsample=2,
+                format_image="png",
             ),
         ],
         path_output="./screenshots/test/",
