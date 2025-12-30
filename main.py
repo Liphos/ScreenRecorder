@@ -97,7 +97,7 @@ def _save(
     compression_rate: int,
     process_id: int,
     n_processes: int,
-    format_image: str = "png",
+    format_image: str,
     verbose: bool = False,
 ) -> None:
     """Process that saves the screenshots to the disk.
@@ -108,11 +108,11 @@ def _save(
         compression_rate (int): Compression rate for the screenshots.
         process_id (int): ID of the process.
         n_processes (int): Number of processes.
-        format_image (str, optional): Format to save the screenshots to. Use Pillow's available formats(eg: "png", "jpg", "webp"). Defaults to "png".
+        format_image (str): Format to save the screenshots to. Use Pillow's available formats(eg: "png", "jpg", "webp").
         verbose (bool, optional): Control how much information is printed. Useful for debugging. Defaults to False.
     """
 
-    def save_to_disk(img: mss.screenshot.ScreenShot) -> None:
+    def save_to_disk(img: mss.screenshot.ScreenShot, number: int) -> None:
         """Save the screenshot to the disk."""
         output = path_output + f"file_{number * n_processes + process_id}." + format_image
         if format_image == "png":
@@ -134,7 +134,7 @@ def _save(
     start_time = time.time()
     while "there are screenshots":
         try:
-            img = queue.get(timeout=60)
+            img: mss.screenshot.ScreenShot | None = queue.get(timeout=60)
         except Empty:
             warnings.warn(
                 f"WARNING: Saving worker {process_id} queue is empty. Did the grabbing process stop?",
@@ -143,7 +143,7 @@ def _save(
             break
         if img is None:
             break
-        save_to_disk(img)
+        save_to_disk(img, number)
         number += 1
     if verbose:
         print(f"Saving worker {process_id} finished and creating logs.")
@@ -826,6 +826,7 @@ def main() -> None:
             ScreenRecording(
                 n_processes=args.n_processes,
                 aimed_fps=args.fps,
+                format_image=args.format,
                 compression_rate=args.compression,
                 max_screenshots=args.max_screenshots,
                 allowed_n_images_delayed=args.queue_size,
