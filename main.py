@@ -241,7 +241,7 @@ class ScreenRecording(Recorder):
         n_processes: int = 2,
         aimed_fps: int = 10,
         format_image: str = "png",
-        compression_rate: int = 9,
+        compression_rate: int = 6,
         quality: int = 95,
         downsample: int = 1,
         max_screenshots: int = 100_000,
@@ -253,7 +253,7 @@ class ScreenRecording(Recorder):
             n_processes (int): Number of processes to use for saving the screenshots. For high compression rate, it is recommended to use more processes. You can use measure_fps to adjust.
             aimed_fps (int): Aimed FPS for the screen recording. Lower this value when the tool fails to screenshot at the desired FPS.
             format_image (str, optional): Format to save the screenshots to. Use Pillow's available formats(eg: "png", "jpg", "webp"). Defaults to "png".
-            compression_rate (int, optional): Compression rate for the screenshots. Higher values means smaller files and longer saving time. Only applies to PNG format. Defaults to 9.
+            compression_rate (int, optional): Compression rate for the screenshots. Higher values means smaller files and longer saving time. Only applies to PNG format. Defaults to 6.
             quality (int, optional): Quality for the screenshots. Only applies to JPG and WEBP formats. Defaults to 95.
             downsample (int, optional): Downsample factor for the screenshots. 1 means no downsampling. 2 means half the size. 3 means one third the size. etc. Defaults to 1.
             max_screenshots (int, optional): Option to stop recording after a certain number of screenshots is taken. Defaults to 100_000.
@@ -788,7 +788,7 @@ def parse_args() -> argparse.Namespace:
     screen_group.add_argument(
         "--compression",
         type=int,
-        default=9,
+        default=6,
         choices=range(0, 10),
         metavar="[0-9]",
         help="PNG compression rate (0=none, 9=max). Higher values means smaller files but longer saving time.",
