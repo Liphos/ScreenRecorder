@@ -77,7 +77,6 @@ I briefly tested the script using mss to a script in C++, thanks to a [post](htt
 A great speed improvement would be to leverage OBS or other screen recording tool as they are much more efficient(can reach **60** fps easily). However it implies some limitation and more development time compared to python.
 
 ## Additionnal tools
-TODO: correct 
-To convert png images to webp: ```ffmpeg -i <file_name.png> -q:v 90 "<new_image_name>.webp"``` where -q:v 90 is the quality ratio(higher is better)
+The script should not take a lot of ram or compute when running at a small amount of fps(10-20). However, if it is too much. I advise turning off the screen recording and using an optimized one like obs which is much more efficient. However, it records a video that needs to be converted back to images. For that I advise to use FFmpeg using a command like this one: ```ffmpeg -i input.mp4 -vf fps=1 out%d.png```. You can also specify the number of fps desired as well as the quality and format. Be aware that the conversion will take a while depending on the ressources availables and the fps desired.
 
 In term of efficiency of compression, Jpeg XL seems to be above the rest but is not always supported. Otherwise jpeg or webp are also very powerful. When checking for dataset of images for diffusion models, I found some png or jpegs. I think both can be used however less artefacts are better.
