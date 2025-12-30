@@ -1,5 +1,5 @@
 # ScreenRecorder
-ScreenRecorder is a project that allows recording of screen, mouse, keyboard and gamepad inputs to form a dataset. 
+ScreenRecorder is a project that allows recording of screen, mouse, keyboard and gamepad inputs to form a dataset. The dataset will be composed of a folder containing the images(png, jpeg or webp) and a json for each input(screen timestamps, mouse, keyboard and gamepad). 
 The objective is to facilitate the creation of a dataset of human computer interactions on several tasks(exploring the web, working with excel, playing games).
 This repository adopted the one script ideology. *main.py* contains all the code, the rest are tests and scripts to determinate optimal parameters.
 
@@ -18,6 +18,52 @@ To launch the program, you only need to run main.py
 ```sh
 python main.py
 ```
+## Parameters
+
+The script accepts the following command-line arguments:
+
+### Input Recording Options
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--no-screen` | Disable screen recording | Enabled |
+| `--no-keyboard` | Disable keyboard recording | Enabled |
+| `--no-mouse` | Disable mouse recording | Enabled |
+| `--no-gamepad` | Disable gamepad recording | Enabled |
+
+### Output Settings
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `-o, --output` | Directory to save recordings | `./screenshots/` |
+| `--no-print-results` | Disable printing performance results | Prints results |
+| `-v, --verbose` | Enable verbose output for debugging | Disabled |
+
+### Screen Recording Settings
+| Parameter | Description | Range | Default |
+|-----------|-------------|-------|---------|
+| `--n-processes` | Number of parallel processes for saving screenshots. Increase for higher compression rates. | ≥1 | `2` |
+| `--fps` | Target FPS for screen recording. Lower if screenshots fail to save fast enough. | ≥1 | `10` |
+| `--format` | Image format for screenshots. | `png`, `jpg`, `webp` | `png` |
+| `--compression` | PNG compression level. Higher = smaller files but slower saving. | 0-9 | `9` |
+| `--max-screenshots` | Maximum number of screenshots before auto-stop. | ≥1 | `200000` |
+| `--queue-size` | Max images allowed in queue before auto-stop (prevents out-of-memory). | ≥1 | `100` |
+
+### Global Hotkey Settings
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `--hotkey` | Hotkey to stop recording (uses [pynput format](https://pynput.readthedocs.io/en/latest/keyboard.html#global-hotkeys)) | `<ctrl>+<shift>+<delete>` |
+
+### Timing Settings
+| Parameter | Description | Range | Default |
+|-----------|-------------|-------|---------|
+| `--start-delay` | Delay in seconds before starting recording | ≥0 | `2.0` |
+| `--timeout` | Maximum recording duration in seconds | ≥0 | `150000` |
+
+### Image Format Notes
+The script currently supports PNG format with configurable compression. The compression level affects:
+- **Level 0**: No compression (fastest saving, largest files)
+- **Level 9**: Maximum compression (slowest saving, smallest files)
+
+For high FPS recording with high compression, increase `--n-processes` to parallelize the workload.
 ## Hardware Comparison
 The project was mainly tested on two different windows machine. On both machines, I compared the performance when having cursor opened(to launch the script) as well as tbe light 2D game [Zombotron](https://store.steampowered.com/app/664830/Zombotron/). The script was launched with 3 saving processes and a compression ratio of 6. 
 
@@ -29,3 +75,9 @@ The performance for the 2 machines are:
 I briefly tested the script using mss to a script in C++, thanks to a [post](https://gist.github.com/prashanthrajagopal/05f8ad157ece964d8c4d?permalink_comment_id=4790784#gistcomment-4790784). When compiling this simple script, I obtained around **30** fps on the MSI laptop, which is only 5fps more than the python script.
 
 A great speed improvement would be to leverage OBS or other screen recording tool as they are much more efficient(can reach **60** fps easily). However it implies some limitation and more development time compared to python.
+
+## Additionnal tools
+TODO: correct 
+To convert png images to webp: ```ffmpeg -i <file_name.png> -q:v 90 "<new_image_name>.webp"``` where -q:v 90 is the quality ratio(higher is better)
+
+In term of efficiency of compression, Jpeg XL seems to be above the rest but is not always supported. Otherwise jpeg or webp are also very powerful. When checking for dataset of images for diffusion models, I found some png or jpegs. I think both can be used however less artefacts are better.
