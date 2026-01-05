@@ -39,9 +39,8 @@ def main(
                 compression_rate=6,
                 max_screenshots=n_screenshots,
             )
-            screen_recorder.set_common_parameters(
-                path_output=PATH_OUTPUT, print_results=verbose
-            )
+            _ = screen_recorder.initialize()
+            screen_recorder.set_common_parameters(path_output=PATH_OUTPUT, print_results=verbose)
             screen_recorder.start()
             # Stop the screen recording
             while not screen_recorder.should_stop():
@@ -58,9 +57,7 @@ def main(
                 # Config is unsafe
                 is_unsafe = True
                 if verbose:
-                    print(
-                        f"Can't record screen at {aimed_fps}, current FPS: {mean_fps}"
-                    )
+                    print(f"Can't record screen at {aimed_fps}, current FPS: {mean_fps}")
             # For saving
             save_times = [log["time"] for log in saving_logs]
             for save_time in save_times:
@@ -86,9 +83,7 @@ def main(
     print("Best config:")
     print(f"Processes: {sorted(enumerate(most_stable_fps), key=lambda x: x[1])[-1][0]}")
     print(f"Aimed FPS: {sorted(enumerate(best_fps), key=lambda x: x[1])[-1][1]}")
-    print(
-        f"Most stable FPS: {sorted(enumerate(most_stable_fps), key=lambda x: x[1])[-1][1]}"
-    )
+    print(f"Most stable FPS: {sorted(enumerate(most_stable_fps), key=lambda x: x[1])[-1][1]}")
     print("-" * 100)
 
 

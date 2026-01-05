@@ -182,6 +182,7 @@ class Recorder(ABC):
         self.path_output: str
         self.print_results: bool
         self.is_stopped: bool = False
+        self.is_initialized: bool = False
 
     def set_common_parameters(
         self, path_output: str, print_results: bool, verbose: bool = False
@@ -191,11 +192,20 @@ class Recorder(ABC):
         self.print_results = print_results
         self.verbose = verbose
 
-    def check_availability(self) -> Exception | None:
-        """Check if the recorder is available."""
+    def _initialize(self) -> Exception | None:
+        """Override this method to initialize the recorder and check if it is available."""
+        return None
+
+    def initialize(self) -> Exception | None:
+        """Initialize the recorder and check if it is available."""
+        exception: Exception | None = self._initialize()
+        if exception is not None:
+            return exception
+        self.is_initialized = True
         return None
 
     def start(self) -> None:
+        assert self.is_initialized, "Recorder is not initialized. Call initialize() first."
         self._start()
 
     def should_stop(self) -> bool:
@@ -285,7 +295,9 @@ class ScreenRecording(Recorder):
         self._p_grab: Process | None = None
         self._p_saves: list[Process] = []
 
-    def check_availability(self) -> Exception | None:
+    def _initialize(self) -> Exception | None:
+        """Initialize the screen recording."""
+        assert self.n_processes > 0, "n_processes must be 1 or more"
         # Find the correct monitor.
         # Warning: order is returned by OS. Principal monitor might not be the first one.
         with mss.mss() as sct:
@@ -303,10 +315,10 @@ class ScreenRecording(Recorder):
                             )
                         break
                 if monitor_id is None:
-                    raise ValueError(f"Monitor with size {self.monitor_spec} not found.")
+                    return ValueError(f"Monitor with size {self.monitor_spec} not found.")
             else:
                 if self.monitor_spec > len(sct.monitors) - 1:
-                    raise ValueError(
+                    return ValueError(
                         f"Monitor ID {self.monitor_spec} is out of range. There are only {len(sct.monitors) - 1} monitors."
                     )
                 monitor_id = self.monitor_spec
@@ -319,12 +331,11 @@ class ScreenRecording(Recorder):
                     "height": sct.monitors[monitor_id]["height"],
                 }
             except Exception as e:
-                raise UnpluggedError("No screen found.") from e
+                return UnpluggedError("No screen found.")
         return None
 
     def _start(self) -> None:
         """Start the screen recording."""
-        assert self.n_processes > 0, "n_processes must be 1 or more"
         # 2 processes: one for grabbing and one for saving PNG files
         # grabing is in the main process
         self._p_grab = Process(
@@ -639,7 +650,8 @@ class GamepadRecording(Recorder):
         )
         self._gamepad_thread.daemon = True
 
-    def check_availability(self) -> Exception | None:
+    def _initialize(self) -> Exception | None:
+        """Initialize the gamepad recording and check if it is available."""
         try:
             _ = devices.gamepads[0]
             return None
@@ -706,7 +718,7 @@ class Manager:
         # Check availability of all recorders and remove recorders that are not available
         remaining_recorders: List[Recorder] = []
         for recorder in self.list_recorders:
-            exception = recorder.check_availability()
+            exception = recorder.initialize()
             if exception is None:
                 remaining_recorders.append(recorder)
             else:
