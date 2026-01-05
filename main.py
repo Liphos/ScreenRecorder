@@ -63,18 +63,20 @@ def _grab(
         "width": sct.monitors[monitor_id]["width"],
         "height": sct.monitors[monitor_id]["height"],
     }
-    start_time = time.time()
-    grab_time = time.perf_counter()
+    start_time = time.perf_counter()
+    grab_time = time.perf_counter_ns()
     max_stable_fps = 10_000
     for i in range(max_screenshots):
         if stop_flag.value:
             break
         queue = queues[i % len(queues)]
         queue.put(sct.grab(rect))
-        all_timestamps.append(time.time())
-        time.sleep(max(0, 1 / aimed_fps - (time.perf_counter() - grab_time)))
-        max_stable_fps = min(max_stable_fps, int(1 / (time.perf_counter() - grab_time)))
-        grab_time = time.perf_counter()
+        curr_time = time.perf_counter_ns()
+        all_timestamps.append(curr_time)
+        # Enforce aimed FPS
+        time.sleep(max(0, 1 / aimed_fps - (curr_time - grab_time) / 1_000_000_000))
+        max_stable_fps = min(max_stable_fps, int(1_000_000_000 / (curr_time - grab_time)))
+        grab_time = time.perf_counter_ns()
     if verbose:
         print("Stop screenshotting. Give empty image to saving workers to stop.")
     # Tell the other worker to stop
@@ -82,8 +84,8 @@ def _grab(
         queue.put(None)
     out_log = {
         "log": "grabbing",
-        "fps": len(all_timestamps) / (time.time() - start_time),
-        "time": time.time() - start_time,
+        "fps": len(all_timestamps) / (time.perf_counter() - start_time),
+        "time": time.perf_counter() - start_time,
         "max_stable_fps": max_stable_fps,
         "timestamps": all_timestamps,
     }
@@ -148,7 +150,7 @@ def _save(
             raise ValueError(f"Invalid format: {format_image}")
 
     number = 0
-    start_time = time.time()
+    start_time = time.perf_counter()
     while "there are screenshots":
         try:
             img: mss.screenshot.ScreenShot | None = queue.get(timeout=60)
@@ -167,8 +169,8 @@ def _save(
     out_log = {
         "log": "saving",
         "id": process_id,
-        "fps": number / (time.time() - start_time),
-        "time": time.time() - start_time,
+        "fps": number / (time.perf_counter() - start_time),
+        "time": time.perf_counter() - start_time,
     }
     _out_queue.put(out_log)
     if verbose:
@@ -507,7 +509,7 @@ class KeyboardRecording(Recorder):
             return
         self._action_logs.append(
             {
-                "timestamp": time.time(),
+                "timestamp": time.perf_counter_ns(),
                 "type": "pressed",
                 "key": key.char if isinstance(key, keyboard.KeyCode) else key.name,
             }
@@ -519,7 +521,7 @@ class KeyboardRecording(Recorder):
             return
         self._action_logs.append(
             {
-                "timestamp": time.time(),
+                "timestamp": time.perf_counter_ns(),
                 "type": "release",
                 "key": key.char if isinstance(key, keyboard.KeyCode) else key.name,
             }
@@ -535,10 +537,12 @@ class KeyboardRecording(Recorder):
     def _start(self) -> None:
         """Start the keyboard recording."""
         self.keyboard_listener.start()
+        self._action_logs.append({"timestamp": time.perf_counter_ns(), "type": "start"})
 
     def _stop(self) -> None:
         """Stop the keyboard recording."""
         self.keyboard_listener.stop()
+        self._action_logs.append({"timestamp": time.perf_counter_ns(), "type": "stop"})
 
     def _should_stop(self) -> bool:
         """Call to stop if keyboard recording has stopped."""
@@ -573,13 +577,15 @@ class MouseRecording(Recorder):
 
     def on_move(self, x: int, y: int):
         """Called when moving the mouse."""
-        self._action_logs.append({"timestamp": time.time(), "type": "move", "x": x, "y": y})
+        self._action_logs.append(
+            {"timestamp": time.perf_counter_ns(), "type": "move", "x": x, "y": y}
+        )
 
     def on_click(self, x: int, y: int, button: mouse.Button, pressed: bool):
         """Called when clicking the mouse."""
         self._action_logs.append(
             {
-                "timestamp": time.time(),
+                "timestamp": time.perf_counter_ns(),
                 "type": "click",
                 "x": x,
                 "y": y,
@@ -592,7 +598,7 @@ class MouseRecording(Recorder):
         """Called when scrolling the mouse."""
         self._action_logs.append(
             {
-                "timestamp": time.time(),
+                "timestamp": time.perf_counter_ns(),
                 "type": "scroll",
                 "x": x,
                 "y": y,
@@ -611,10 +617,12 @@ class MouseRecording(Recorder):
     def _start(self) -> None:
         """Start the mouse recording."""
         self.mouse_listener.start()
+        self._action_logs.append({"timestamp": time.perf_counter_ns(), "type": "start"})
 
     def _stop(self) -> None:
         """Stop the mouse recording."""
         self.mouse_listener.stop()
+        self._action_logs.append({"timestamp": time.perf_counter_ns(), "type": "stop"})
 
     def _should_stop(self) -> bool:
         """Call to stop if mouse recording has stopped."""
@@ -692,7 +700,7 @@ class GamepadRecording(Recorder):
                     if event.state == 1:
                         self._action_logs.append(
                             {
-                                "timestamp": time.time(),
+                                "timestamp": time.perf_counter_ns(),
                                 "type": "pressed",
                                 "key": event.code,
                             }
@@ -700,7 +708,7 @@ class GamepadRecording(Recorder):
                     elif event.state == 0:
                         self._action_logs.append(
                             {
-                                "timestamp": time.time(),
+                                "timestamp": time.perf_counter_ns(),
                                 "type": "released",
                                 "key": event.code,
                             }
@@ -708,7 +716,7 @@ class GamepadRecording(Recorder):
                 elif event.ev_type == "Absolute":
                     self._action_logs.append(
                         {
-                            "timestamp": time.time(),
+                            "timestamp": time.perf_counter_ns(),
                             "type": "absolute",
                             "axis": event.code,
                             "value": event.state,
@@ -735,9 +743,11 @@ class GamepadRecording(Recorder):
 
     def _start(self) -> None:
         self._gamepad_thread.start()
+        self._action_logs.append({"timestamp": time.perf_counter_ns(), "type": "start"})
 
     def _stop(self) -> None:
         self._stop_event.set()
+        self._action_logs.append({"timestamp": time.perf_counter_ns(), "type": "stop"})
 
     def _join(self) -> None:
         # Add a timeout here as an exception because the gampad thread won't stop until a gamepad input is detected
@@ -746,10 +756,10 @@ class GamepadRecording(Recorder):
         if self._gamepad_thread.is_alive():
             warnings.warn("WARNING: Gamepad thread did not stop.")
         # Dump the action logs to a file
-        time_to_save = time.time()
+        time_to_save = time.perf_counter()
         with open(os.path.join(self.path_output, "gamepad_logs.json"), "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
-        print(f"Time to save gamepad logs: {time.time() - time_to_save:.2f} seconds")
+        print(f"Time to save gamepad logs: {time.perf_counter() - time_to_save:.2f} seconds")
 
     def _should_stop(self) -> bool:
         return not self._gamepad_thread.is_alive()
@@ -843,10 +853,10 @@ class Manager:
             timeout (float, optional): Timeout in seconds. Defaults to 150_000.
         """
         time.sleep(start_delay)
-        start_time = time.time()
+        start_time = time.perf_counter()
         self.start()
         print("Recording started.")
-        while time.time() - start_time < timeout:
+        while time.perf_counter() - start_time < timeout:
             time.sleep(0.1)
             for recorder in self.list_recorders:
                 if recorder.should_stop():
