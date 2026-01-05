@@ -806,7 +806,8 @@ class Manager:
                 )
         self.list_recorders = remaining_recorders
         # Create a file to save config
-        with open(self.path_output + "recorders.txt", "w", encoding="utf-8") as f:
+        with open(self.path_output + "dataset_info.txt", "w", encoding="utf-8") as f:
+            f.write(f"Timestamp: {time.time()}\n")
             for recorder in self.list_recorders:
                 f.write(recorder.__class__.__name__ + "\n")
         # Start the recorders that are available
