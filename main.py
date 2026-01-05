@@ -557,8 +557,18 @@ class KeyboardRecording(Recorder):
     @staticmethod
     def fuse_datasets(folder_path_1: str, folder_path_2: str) -> None:
         """Fuse two datasets into a single dataset."""
-        # TODO: Implement the method
-        pass
+        with open(folder_path_1 + "keyboard_logs.json", "r", encoding="utf-8") as f:
+            json_logs_1 = json.load(f)
+        with open(folder_path_2 + "keyboard_logs.json", "r", encoding="utf-8") as f:
+            json_logs_2 = json.load(f)
+        if json_logs_1[-1]["timestamp"] > json_logs_2[0]["timestamp"]:
+            json_logs_1, json_logs_2 = json_logs_2, json_logs_1
+            folder_path_1, folder_path_2 = folder_path_2, folder_path_1
+        # Fuse the datasets
+        with open(folder_path_1 + "keyboard_logs.json", "w", encoding="utf-8") as f:
+            json.dump(json_logs_1 + [{"NEW DATASET": None}] + json_logs_2, f)
+        # Remove the old file
+        os.remove(folder_path_2 + "keyboard_logs.json")
 
 
 class MouseRecording(Recorder):
