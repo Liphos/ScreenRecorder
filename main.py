@@ -430,7 +430,7 @@ class ScreenRecording(Recorder):
 
     def _save_timestamps(self, grab_log: Dict[str, Any]) -> None:
         """Save the timestamps of the screen recording to a file."""
-        with open(self.path_output + "timestamps.txt", "w", encoding="utf-8") as f:
+        with open(os.path.join(self.path_output, "timestamps.txt"), "w", encoding="utf-8") as f:
             for incr, timestamp in enumerate(grab_log["timestamps"]):
                 if incr == len(grab_log["timestamps"]) - 1:
                     f.write(f"{timestamp:.6f}")
@@ -469,16 +469,16 @@ class ScreenRecording(Recorder):
         """Fuse two datasets into a single dataset."""
         timestamps_1 = []
         timestamps_2 = []
-        with open(old_dataset_path + "timestamps.txt", "r", encoding="utf-8") as f:
+        with open(os.path.join(old_dataset_path, "timestamps.txt"), "r", encoding="utf-8") as f:
             timestamps_1 = f.readlines()
-        with open(new_dataset_path + "timestamps.txt", "r", encoding="utf-8") as f:
+        with open(os.path.join(new_dataset_path, "timestamps.txt"), "r", encoding="utf-8") as f:
             timestamps_2 = f.readlines()
         # The number of images is the number of lines in the timestamps file. The "New Dataset" lines are not counted.
         image_incr = len(timestamps_1) - sum(
             1 for line in timestamps_1 if line.strip() == "NEW DATASET"
         )
         # Fuse the datasets
-        with open(old_dataset_path + "timestamps.txt", "a", encoding="utf-8") as f:
+        with open(os.path.join(old_dataset_path, "timestamps.txt"), "a", encoding="utf-8") as f:
             f.write("\nNEW DATASET\n")
             for timestamp in timestamps_2:
                 f.write(timestamp)
@@ -486,12 +486,14 @@ class ScreenRecording(Recorder):
         for image in os.listdir(new_dataset_path):
             if image.endswith(".png") or image.endswith(".jpg") or image.endswith(".webp"):
                 shutil.move(
-                    new_dataset_path + image,
-                    old_dataset_path
-                    + f"file_{image_incr + int(image.split('.')[0][5:])}.{image.split('.')[-1]}",
+                    os.path.join(new_dataset_path, image),
+                    os.path.join(
+                        old_dataset_path,
+                        f"file_{image_incr + int(image.split('.')[0][5:])}.{image.split('.')[-1]}",
+                    ),
                 )
         # Remove the old file
-        os.remove(new_dataset_path + "timestamps.txt")
+        os.remove(os.path.join(new_dataset_path, "timestamps.txt"))
 
 
 class KeyboardRecording(Recorder):
@@ -547,21 +549,21 @@ class KeyboardRecording(Recorder):
         self.keyboard_listener.join(timeout=10)
         if self.keyboard_listener.is_alive():
             warnings.warn("WARNING: Keyboard listener did not stop.")
-        with open(self.path_output + "keyboard_logs.json", "w", encoding="utf-8") as f:
+        with open(os.path.join(self.path_output, "keyboard_logs.json"), "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
 
     @staticmethod
     def fuse_datasets(old_dataset_path: str, new_dataset_path: str) -> None:
         """Fuse two datasets into a single dataset."""
-        with open(old_dataset_path + "keyboard_logs.json", "r", encoding="utf-8") as f:
+        with open(os.path.join(old_dataset_path, "keyboard_logs.json"), "r", encoding="utf-8") as f:
             json_logs_1 = json.load(f)
-        with open(new_dataset_path + "keyboard_logs.json", "r", encoding="utf-8") as f:
+        with open(os.path.join(new_dataset_path, "keyboard_logs.json"), "r", encoding="utf-8") as f:
             json_logs_2 = json.load(f)
         # Fuse the datasets
-        with open(old_dataset_path + "keyboard_logs.json", "w", encoding="utf-8") as f:
+        with open(os.path.join(old_dataset_path, "keyboard_logs.json"), "w", encoding="utf-8") as f:
             json.dump(json_logs_1 + [{"NEW DATASET": None}] + json_logs_2, f)
         # Remove the old file
-        os.remove(new_dataset_path + "keyboard_logs.json")
+        os.remove(os.path.join(new_dataset_path, "keyboard_logs.json"))
 
 
 class MouseRecording(Recorder):
@@ -623,21 +625,21 @@ class MouseRecording(Recorder):
         self.mouse_listener.join(timeout=10)
         if self.mouse_listener.is_alive():
             warnings.warn("WARNING: Mouse listener did not stop.")
-        with open(self.path_output + "mouse_logs.json", "w", encoding="utf-8") as f:
+        with open(os.path.join(self.path_output, "mouse_logs.json"), "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
 
     @staticmethod
     def fuse_datasets(old_dataset_path: str, new_dataset_path: str) -> None:
         """Fuse two datasets into a single dataset."""
-        with open(old_dataset_path + "mouse_logs.json", "r", encoding="utf-8") as f:
+        with open(os.path.join(old_dataset_path, "mouse_logs.json"), "r", encoding="utf-8") as f:
             json_logs_1 = json.load(f)
-        with open(new_dataset_path + "mouse_logs.json", "r", encoding="utf-8") as f:
+        with open(os.path.join(new_dataset_path, "mouse_logs.json"), "r", encoding="utf-8") as f:
             json_logs_2 = json.load(f)
         # Fuse the datasets
-        with open(old_dataset_path + "mouse_logs.json", "w", encoding="utf-8") as f:
+        with open(os.path.join(old_dataset_path, "mouse_logs.json"), "w", encoding="utf-8") as f:
             json.dump(json_logs_1 + [{"NEW DATASET": None}] + json_logs_2, f)
         # Remove the old file
-        os.remove(new_dataset_path + "mouse_logs.json")
+        os.remove(os.path.join(new_dataset_path, "mouse_logs.json"))
 
 
 class StopRecording(Recorder):
@@ -745,7 +747,7 @@ class GamepadRecording(Recorder):
             warnings.warn("WARNING: Gamepad thread did not stop.")
         # Dump the action logs to a file
         time_to_save = time.time()
-        with open(self.path_output + "gamepad_logs.json", "w", encoding="utf-8") as f:
+        with open(os.path.join(self.path_output, "gamepad_logs.json"), "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
         print(f"Time to save gamepad logs: {time.time() - time_to_save:.2f} seconds")
 
@@ -755,15 +757,15 @@ class GamepadRecording(Recorder):
     @staticmethod
     def fuse_datasets(old_dataset_path: str, new_dataset_path: str) -> None:
         """Fuse two datasets into a single dataset."""
-        with open(old_dataset_path + "gamepad_logs.json", "r", encoding="utf-8") as f:
+        with open(os.path.join(old_dataset_path, "gamepad_logs.json"), "r", encoding="utf-8") as f:
             json_logs_1 = json.load(f)
-        with open(new_dataset_path + "gamepad_logs.json", "r", encoding="utf-8") as f:
+        with open(os.path.join(new_dataset_path, "gamepad_logs.json"), "r", encoding="utf-8") as f:
             json_logs_2 = json.load(f)
         # Fuse the datasets
-        with open(old_dataset_path + "gamepad_logs.json", "w", encoding="utf-8") as f:
+        with open(os.path.join(old_dataset_path, "gamepad_logs.json"), "w", encoding="utf-8") as f:
             json.dump(json_logs_1 + [{"NEW DATASET": None}] + json_logs_2, f)
         # Remove the old file
-        os.remove(new_dataset_path + "gamepad_logs.json")
+        os.remove(os.path.join(new_dataset_path, "gamepad_logs.json"))
 
 
 class Manager:
@@ -813,7 +815,7 @@ class Manager:
                 )
         self.list_recorders = remaining_recorders
         # Create a file to save config
-        with open(self.path_output + "dataset_info.txt", "w", encoding="utf-8") as f:
+        with open(os.path.join(self.path_output, "dataset_info.txt"), "w", encoding="utf-8") as f:
             f.write(f"Timestamp: {time.time()}\n")
             for recorder in self.list_recorders:
                 f.write(recorder.__class__.__name__ + "\n")
