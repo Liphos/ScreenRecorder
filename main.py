@@ -247,7 +247,7 @@ class ScreenRecording(Recorder):
         downsample: int = 1,
         max_screenshots: int = 100_000,
         allowed_n_images_delayed: int = 100,
-        monitor_id: int = 1,
+        monitor_spec: Tuple[int, int] | int = 1,
     ) -> None:
         """Initialize the screen recording.
 
@@ -260,7 +260,7 @@ class ScreenRecording(Recorder):
             downsample (int, optional): Downsample factor for the screenshots. 1 means no downsampling. 2 means half the size. 3 means one third the size. etc. Defaults to 1.
             max_screenshots (int, optional): Option to stop recording after a certain number of screenshots is taken. Defaults to 100_000.
             allowed_n_images_delayed (int, optional): Allowed number of images accumulated in the queue. If it exceeds, the process will call stop to protect current colleted data. Defaults to 100.
-            monitor_id (int, optional): Monitor to screenshot(1,2,...). Defaults to 1.
+            monitor_spec (Tuple[int,int]|int, optional): Monitor to screenshot(1,2,...). If tuple is provided, find the first monitor given screen size(width, height). Defaults to 1.
         """
 
         super().__init__()
@@ -272,7 +272,8 @@ class ScreenRecording(Recorder):
         self.downsample = downsample
         self.max_screenshots = max_screenshots
         self.allowed_n_images_delayed = allowed_n_images_delayed
-        self.monitor_id = monitor_id
+        self.monitor_spec = monitor_spec
+        self.monitor_id: int
         # Queues
         self._list_queues: list[Queue] = [
             Queue(self.allowed_n_images_delayed) for _ in range(n_processes)
@@ -285,13 +286,37 @@ class ScreenRecording(Recorder):
         self._p_saves: list[Process] = []
 
     def check_availability(self) -> Exception | None:
+        # Find the correct monitor.
+        # Warning: order is returned by OS. Principal monitor might not be the first one.
         with mss.mss() as sct:
+            if isinstance(self.monitor_spec, tuple):
+                monitor_id = None
+                for incr, monitor in enumerate(sct.monitors[1:]):
+                    if (
+                        monitor["width"] == self.monitor_spec[0]
+                        and monitor["height"] == self.monitor_spec[1]
+                    ):
+                        monitor_id = incr + 1
+                        if self.verbose:
+                            print(
+                                f"Found monitor with size {self.monitor_spec} at index {monitor_id}."
+                            )
+                        break
+                if monitor_id is None:
+                    raise ValueError(f"Monitor with size {self.monitor_spec} not found.")
+            else:
+                if self.monitor_spec > len(sct.monitors) - 1:
+                    raise ValueError(
+                        f"Monitor ID {self.monitor_spec} is out of range. There are only {len(sct.monitors) - 1} monitors."
+                    )
+                monitor_id = self.monitor_spec
+            self.monitor_id = monitor_id
             try:
                 _ = {
-                    "top": sct.monitors[1]["top"],
-                    "left": sct.monitors[1]["left"],
-                    "width": sct.monitors[1]["width"],
-                    "height": sct.monitors[1]["height"],
+                    "top": sct.monitors[monitor_id]["top"],
+                    "left": sct.monitors[monitor_id]["left"],
+                    "width": sct.monitors[monitor_id]["width"],
+                    "height": sct.monitors[monitor_id]["height"],
                 }
             except Exception as e:
                 raise UnpluggedError("No screen found.") from e
@@ -729,6 +754,27 @@ class Manager:
         self.join()
 
 
+def parse_monitor_spec(value: str) -> int | Tuple[int, int]:
+    """Parse string to either int or tuple of two ints."""
+    try:
+        # Try parsing as int first
+        if "," not in value:
+            return int(value)
+
+        # Try parsing as tuple
+        parts = value.split(",")
+        if len(parts) == 2:
+            return (int(parts[0].strip()), int(parts[1].strip()))
+        else:
+            raise argparse.ArgumentTypeError(
+                f"Expected int or two ints separated by comma. Got: {value}"
+            )
+    except ValueError as esc:
+        raise argparse.ArgumentTypeError(
+            f"Invalid value. Expected int or two ints separated by comma for monitor specification. Got: {value}"
+        ) from esc
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
@@ -791,10 +837,10 @@ def parse_args() -> argparse.Namespace:
         help='Format to save the screenshots to. Use Pillow\'s available formats(eg: "png", "jpg", "webp").',
     )
     screen_group.add_argument(
-        "--monitor-id",
-        type=int,
-        default=1,
-        help="Monitor to screenshot(1,2,...). Defaults to 1.",
+        "--monitor-spec",
+        default="1",
+        type=parse_monitor_spec,
+        help="Monitor to screenshot(1,2,...). If tuple is provided, find the first monitor given screen size(width, height). Defaults to 1.",
     )
     screen_group.add_argument(
         "--compression",
@@ -880,7 +926,7 @@ def main() -> None:
                 downsample=args.downsample,
                 max_screenshots=args.max_screenshots,
                 allowed_n_images_delayed=args.queue_size,
-                monitor_id=args.monitor_id,
+                monitor_spec=args.monitor_spec,
             )
         )
     if not args.no_keyboard:
