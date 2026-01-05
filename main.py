@@ -40,6 +40,7 @@ def _grab(
     stop_flag: ctypes.c_bool,
     aimed_fps: int,
     max_screenshots: int = 100_000,
+    monitor_id: int = 1,
     verbose: bool = False,
 ) -> None:
     """Process that take screenshots at desired FPS and send them to the queues.
@@ -50,11 +51,11 @@ def _grab(
         stop_flag (ctypes.c_bool): Flag to stop the process from the main process.
         aimed_fps (int): Desired FPS for the screenshots.
         max_screenshots (int, optional): Maximum number of screenshots before stopping. Defaults to 100_000.
+        monitor_id (int, optional): Monitor to screenshot(1,2,...). Defaults to 1.
         verbose (bool, optional): Control how much information is printed. Useful for debugging. Defaults to False.
     """
     sct = mss.mss()
     all_timestamps = []
-    monitor_id = 1
     rect = {
         "top": sct.monitors[monitor_id]["top"],
         "left": sct.monitors[monitor_id]["left"],
@@ -246,6 +247,7 @@ class ScreenRecording(Recorder):
         downsample: int = 1,
         max_screenshots: int = 100_000,
         allowed_n_images_delayed: int = 100,
+        monitor_id: int = 1,
     ) -> None:
         """Initialize the screen recording.
 
@@ -258,6 +260,7 @@ class ScreenRecording(Recorder):
             downsample (int, optional): Downsample factor for the screenshots. 1 means no downsampling. 2 means half the size. 3 means one third the size. etc. Defaults to 1.
             max_screenshots (int, optional): Option to stop recording after a certain number of screenshots is taken. Defaults to 100_000.
             allowed_n_images_delayed (int, optional): Allowed number of images accumulated in the queue. If it exceeds, the process will call stop to protect current colleted data. Defaults to 100.
+            monitor_id (int, optional): Monitor to screenshot(1,2,...). Defaults to 1.
         """
 
         super().__init__()
@@ -269,6 +272,7 @@ class ScreenRecording(Recorder):
         self.downsample = downsample
         self.max_screenshots = max_screenshots
         self.allowed_n_images_delayed = allowed_n_images_delayed
+        self.monitor_id = monitor_id
         # Queues
         self._list_queues: list[Queue] = [
             Queue(self.allowed_n_images_delayed) for _ in range(n_processes)
@@ -306,6 +310,7 @@ class ScreenRecording(Recorder):
                 self._stop_flag,
                 self.aimed_fps,
                 self.max_screenshots,
+                self.monitor_id,
                 self.verbose,
             ),
         )
@@ -786,6 +791,12 @@ def parse_args() -> argparse.Namespace:
         help='Format to save the screenshots to. Use Pillow\'s available formats(eg: "png", "jpg", "webp").',
     )
     screen_group.add_argument(
+        "--monitor-id",
+        type=int,
+        default=1,
+        help="Monitor to screenshot(1,2,...). Defaults to 1.",
+    )
+    screen_group.add_argument(
         "--compression",
         type=int,
         default=6,
@@ -869,6 +880,7 @@ def main() -> None:
                 downsample=args.downsample,
                 max_screenshots=args.max_screenshots,
                 allowed_n_images_delayed=args.queue_size,
+                monitor_id=args.monitor_id,
             )
         )
     if not args.no_keyboard:
