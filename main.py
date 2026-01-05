@@ -4,6 +4,7 @@ import argparse
 import ctypes
 import json
 import os
+import shutil
 import threading
 import time
 import warnings
@@ -466,7 +467,35 @@ class ScreenRecording(Recorder):
     @staticmethod
     def fuse_datasets(folder_path_1: str, folder_path_2: str) -> None:
         """Fuse two datasets into a single dataset."""
-        # TODO: Implement the method
+        timestamps_1 = []
+        timestamps_2 = []
+        with open(folder_path_1 + "timestamps.txt", "r", encoding="utf-8") as f:
+            timestamps_1 = f.readlines()
+        with open(folder_path_2 + "timestamps.txt", "r", encoding="utf-8") as f:
+            timestamps_2 = f.readlines()
+        # First is the old dataset, second is the new dataset
+        if timestamps_2[0] < timestamps_1[0]:
+            timestamps_1, timestamps_2 = timestamps_2, timestamps_1
+            folder_path_1, folder_path_2 = folder_path_2, folder_path_1
+        # The number of images is the number of lines in the timestamps file. The "New Dataset" lines are not counted.
+        image_incr = len(timestamps_1) - sum(
+            1 for line in timestamps_1 if line.strip() == "NEW DATASET"
+        )
+        # Fuse the datasets
+        with open(folder_path_1 + "timestamps.txt", "a", encoding="utf-8") as f:
+            f.write("\nNEW DATASET\n")
+            for timestamp in timestamps_2:
+                f.write(timestamp)
+        # Add the new images
+        for image in os.listdir(folder_path_2):
+            if image.endswith(".png") or image.endswith(".jpg") or image.endswith(".webp"):
+                shutil.move(
+                    folder_path_2 + image,
+                    folder_path_1
+                    + f"file_{image_incr + int(image.split('.')[0][5:])}.{image.split('.')[-1]}",
+                )
+        # Remove the old file
+        os.remove(folder_path_2 + "timestamps.txt")
 
 
 class KeyboardRecording(Recorder):
