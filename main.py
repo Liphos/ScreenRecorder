@@ -727,6 +727,10 @@ class Manager:
                     + "This recorder will not be used."
                 )
         self.list_recorders = remaining_recorders
+        # Create a file to save config
+        with open(self.path_output + "recorders.txt", "w", encoding="utf-8") as f:
+            for recorder in self.list_recorders:
+                f.write(recorder.__class__.__name__ + "\n")
         # Start the recorders that are available
         for recorder in self.list_recorders:
             recorder.start()
