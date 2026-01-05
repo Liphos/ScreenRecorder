@@ -4,6 +4,7 @@ import argparse
 import ctypes
 import json
 import os
+import shutil
 import threading
 import time
 import warnings
@@ -177,6 +178,8 @@ def _save(
 class Recorder(ABC):
     """Abstract class for all recorders."""
 
+    CREATES_DATA: bool = True  # Check if the recorder creates data. Used when fusing datasets.
+
     def __init__(self) -> None:
         self.verbose: bool
         self.path_output: str
@@ -243,9 +246,15 @@ class Recorder(ABC):
     def _join(self) -> Any:
         """Used to wait for the recording to finish."""
 
+    @staticmethod
+    def fuse_datasets(old_dataset_path: str, new_dataset_path: str) -> None:
+        """Fuse two datasets into a single dataset."""
+
 
 class ScreenRecording(Recorder):
     """Screen Recording class. It captures the screen and saves the screenshots to the disk with multiprocessing."""
+
+    CREATES_DATA: bool = True
 
     def __init__(
         self,
@@ -421,7 +430,7 @@ class ScreenRecording(Recorder):
 
     def _save_timestamps(self, grab_log: Dict[str, Any]) -> None:
         """Save the timestamps of the screen recording to a file."""
-        with open(self.path_output + "timestamps.txt", "w", encoding="utf-8") as f:
+        with open(os.path.join(self.path_output, "timestamps.txt"), "w", encoding="utf-8") as f:
             for incr, timestamp in enumerate(grab_log["timestamps"]):
                 if incr == len(grab_log["timestamps"]) - 1:
                     f.write(f"{timestamp:.6f}")
@@ -455,9 +464,42 @@ class ScreenRecording(Recorder):
         print(f"Process grab time: {grab_time}")
         print(f"Processes save time: {lst_save_time}")
 
+    @staticmethod
+    def fuse_datasets(old_dataset_path: str, new_dataset_path: str) -> None:
+        """Fuse two datasets into a single dataset."""
+        timestamps_1 = []
+        timestamps_2 = []
+        with open(os.path.join(old_dataset_path, "timestamps.txt"), "r", encoding="utf-8") as f:
+            timestamps_1 = f.readlines()
+        with open(os.path.join(new_dataset_path, "timestamps.txt"), "r", encoding="utf-8") as f:
+            timestamps_2 = f.readlines()
+        # The number of images is the number of lines in the timestamps file. The "New Dataset" lines are not counted.
+        image_incr = len(timestamps_1) - sum(
+            1 for line in timestamps_1 if line.strip() == "NEW DATASET"
+        )
+        # Fuse the datasets
+        with open(os.path.join(old_dataset_path, "timestamps.txt"), "a", encoding="utf-8") as f:
+            f.write("\nNEW DATASET\n")
+            for timestamp in timestamps_2:
+                f.write(timestamp)
+        # Add the new images
+        for image in os.listdir(new_dataset_path):
+            if image.endswith(".png") or image.endswith(".jpg") or image.endswith(".webp"):
+                shutil.move(
+                    os.path.join(new_dataset_path, image),
+                    os.path.join(
+                        old_dataset_path,
+                        f"file_{image_incr + int(image.split('.')[0][5:])}.{image.split('.')[-1]}",
+                    ),
+                )
+        # Remove the old file
+        os.remove(os.path.join(new_dataset_path, "timestamps.txt"))
+
 
 class KeyboardRecording(Recorder):
     """Keyboard Recording class. It captures the keyboard inputs and saves the data to a separate file."""
+
+    CREATES_DATA: bool = True
 
     def on_press(self, key: keyboard.KeyCode | keyboard.Key | None) -> None:
         """Called when pressing a key."""
@@ -507,12 +549,27 @@ class KeyboardRecording(Recorder):
         self.keyboard_listener.join(timeout=10)
         if self.keyboard_listener.is_alive():
             warnings.warn("WARNING: Keyboard listener did not stop.")
-        with open(self.path_output + "keyboard_logs.json", "w", encoding="utf-8") as f:
+        with open(os.path.join(self.path_output, "keyboard_logs.json"), "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
+
+    @staticmethod
+    def fuse_datasets(old_dataset_path: str, new_dataset_path: str) -> None:
+        """Fuse two datasets into a single dataset."""
+        with open(os.path.join(old_dataset_path, "keyboard_logs.json"), "r", encoding="utf-8") as f:
+            json_logs_1 = json.load(f)
+        with open(os.path.join(new_dataset_path, "keyboard_logs.json"), "r", encoding="utf-8") as f:
+            json_logs_2 = json.load(f)
+        # Fuse the datasets
+        with open(os.path.join(old_dataset_path, "keyboard_logs.json"), "w", encoding="utf-8") as f:
+            json.dump(json_logs_1 + [{"NEW DATASET": None}] + json_logs_2, f)
+        # Remove the old file
+        os.remove(os.path.join(new_dataset_path, "keyboard_logs.json"))
 
 
 class MouseRecording(Recorder):
     """Mouse Recording class. It captures the mouse inputs and saves the data to a separate file."""
+
+    CREATES_DATA: bool = True
 
     def on_move(self, x: int, y: int):
         """Called when moving the mouse."""
@@ -568,8 +625,21 @@ class MouseRecording(Recorder):
         self.mouse_listener.join(timeout=10)
         if self.mouse_listener.is_alive():
             warnings.warn("WARNING: Mouse listener did not stop.")
-        with open(self.path_output + "mouse_logs.json", "w", encoding="utf-8") as f:
+        with open(os.path.join(self.path_output, "mouse_logs.json"), "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
+
+    @staticmethod
+    def fuse_datasets(old_dataset_path: str, new_dataset_path: str) -> None:
+        """Fuse two datasets into a single dataset."""
+        with open(os.path.join(old_dataset_path, "mouse_logs.json"), "r", encoding="utf-8") as f:
+            json_logs_1 = json.load(f)
+        with open(os.path.join(new_dataset_path, "mouse_logs.json"), "r", encoding="utf-8") as f:
+            json_logs_2 = json.load(f)
+        # Fuse the datasets
+        with open(os.path.join(old_dataset_path, "mouse_logs.json"), "w", encoding="utf-8") as f:
+            json.dump(json_logs_1 + [{"NEW DATASET": None}] + json_logs_2, f)
+        # Remove the old file
+        os.remove(os.path.join(new_dataset_path, "mouse_logs.json"))
 
 
 class StopRecording(Recorder):
@@ -577,6 +647,8 @@ class StopRecording(Recorder):
     Args:
         hotkey (str, optional): Hotkey to stop the recording. It follows the format of pynput. Defaults to "<ctrl>+<shift>+<esc>".
     """
+
+    CREATES_DATA: bool = False
 
     def __init__(self, hotkey: str = "<ctrl>+<shift>+<delete>") -> None:
         super().__init__()
@@ -608,6 +680,8 @@ class StopRecording(Recorder):
 
 class GamepadRecording(Recorder):
     """Gamepad Recording class. It captures the gamepad inputs and saves the data to a separate file."""
+
+    CREATES_DATA: bool = True
 
     def get_gamepad_inputs(self) -> None:
         """Thread that captures the gamepad inputs"""
@@ -673,12 +747,25 @@ class GamepadRecording(Recorder):
             warnings.warn("WARNING: Gamepad thread did not stop.")
         # Dump the action logs to a file
         time_to_save = time.time()
-        with open(self.path_output + "gamepad_logs.json", "w", encoding="utf-8") as f:
+        with open(os.path.join(self.path_output, "gamepad_logs.json"), "w", encoding="utf-8") as f:
             json.dump(self._action_logs, f)
         print(f"Time to save gamepad logs: {time.time() - time_to_save:.2f} seconds")
 
     def _should_stop(self) -> bool:
         return not self._gamepad_thread.is_alive()
+
+    @staticmethod
+    def fuse_datasets(old_dataset_path: str, new_dataset_path: str) -> None:
+        """Fuse two datasets into a single dataset."""
+        with open(os.path.join(old_dataset_path, "gamepad_logs.json"), "r", encoding="utf-8") as f:
+            json_logs_1 = json.load(f)
+        with open(os.path.join(new_dataset_path, "gamepad_logs.json"), "r", encoding="utf-8") as f:
+            json_logs_2 = json.load(f)
+        # Fuse the datasets
+        with open(os.path.join(old_dataset_path, "gamepad_logs.json"), "w", encoding="utf-8") as f:
+            json.dump(json_logs_1 + [{"NEW DATASET": None}] + json_logs_2, f)
+        # Remove the old file
+        os.remove(os.path.join(new_dataset_path, "gamepad_logs.json"))
 
 
 class Manager:
@@ -727,6 +814,11 @@ class Manager:
                     + "This recorder will not be used."
                 )
         self.list_recorders = remaining_recorders
+        # Create a file to save config
+        with open(os.path.join(self.path_output, "dataset_info.txt"), "w", encoding="utf-8") as f:
+            f.write(f"Timestamp: {time.time()}\n")
+            for recorder in self.list_recorders:
+                f.write(recorder.__class__.__name__ + "\n")
         # Start the recorders that are available
         for recorder in self.list_recorders:
             recorder.start()
