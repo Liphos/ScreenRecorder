@@ -29,9 +29,9 @@ def fuse_two_datasets(folder_path_1: str, folder_path_2: str) -> None:
     """Fuse two datasets into a single dataset."""
     # Check if the datasets are compatible
     ## Reorder with old dataset first
-    with open(folder_path_1 + "dataset_info.txt", "r", encoding="utf-8") as f:
+    with open(os.path.join(folder_path_1, "dataset_info.txt"), "r", encoding="utf-8") as f:
         recorders_1 = f.readlines()
-    with open(folder_path_2 + "dataset_info.txt", "r", encoding="utf-8") as f:
+    with open(os.path.join(folder_path_2, "dataset_info.txt"), "r", encoding="utf-8") as f:
         recorders_2 = f.readlines()
     str_timestamps_1, recorders_1 = (
         recorders_1[0].split(":")[1].strip(),
@@ -63,7 +63,7 @@ def fuse_two_datasets(folder_path_1: str, folder_path_2: str) -> None:
         RECORDER_NAME_TO_CLASS[recorder].fuse_datasets(folder_path_1, folder_path_2)
 
     # Fuse the dataset info
-    with open(folder_path_1 + "dataset_info.txt", "w", encoding="utf-8") as f:
+    with open(os.path.join(folder_path_1, "dataset_info.txt"), "w", encoding="utf-8") as f:
         f.write(
             f"Timestamp: {','.join([str(timestamp) for timestamp in lst_timestamps_1 + lst_timestamps_2])}\n"
         )
@@ -74,16 +74,52 @@ def fuse_two_datasets(folder_path_1: str, folder_path_2: str) -> None:
     assert (
         len(os.listdir(folder_path_2)) == 1 and os.listdir(folder_path_2)[0] == "dataset_info.txt"
     )
-    os.remove(folder_path_2 + "dataset_info.txt")
+    os.remove(os.path.join(folder_path_2, "dataset_info.txt"))
     os.rmdir(folder_path_2)
     print(
         f"The new dataset is saved in {folder_path_1}. Datasets fused successfully. The old datasets have been removed."
     )
 
 
+def fuse_datasets(folder_path: str):
+    """Fuse all datasets in a folder into a single dataset. The datasets are ordered by first timestamp."""
+    all_datasets = []
+    all_timestamps = []
+    for folder in os.listdir(folder_path):
+        path_sub_folder = folder_path + folder + "/"
+        if os.path.exists(os.path.join(path_sub_folder, "dataset_info.txt")):
+            all_datasets.append(path_sub_folder)
+            with open(
+                os.path.join(path_sub_folder, "dataset_info.txt"), "r", encoding="utf-8"
+            ) as f:
+                str_timestamps = f.readlines()[0].split(":")[1].strip()
+                lst_timestamps = [float(timestamp) for timestamp in str_timestamps.split(",")][0]
+                all_timestamps.append(lst_timestamps)
+        else:
+            print(f"The folder {path_sub_folder} is not a valid dataset. Skipping.")
+    index_sort = sorted(enumerate(all_timestamps), key=lambda x: x[1])
+    for index, timestamp in index_sort[1:]:
+        fuse_two_datasets(all_datasets[index_sort[0][0]], all_datasets[index])
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--folder_path_1", type=str, required=True)
-    parser.add_argument("--folder_path_2", type=str, required=True)
+    parser.add_argument(
+        "-f",
+        "--folder_path",
+        type=str,
+        required=True,
+        help="Path to the folder containing the datasets.",
+    )
+    parser.add_argument(
+        "-f2",
+        "--folder_path2",
+        type=str,
+        default=None,
+        help="Path to the folder containing the second dataset. If not provided, the datasets inside the folder_path will be fused timewise.",
+    )
     args = parser.parse_args()
-    fuse_two_datasets(args.folder_path_1, args.folder_path_2)
+    if args.folder_path2 is None:
+        fuse_datasets(args.folder_path)
+    else:
+        fuse_two_datasets(args.folder_path, args.folder_path2)
