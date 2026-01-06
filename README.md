@@ -44,6 +44,7 @@ The screen recording offer different possible format: PNG, JPG and WEBP. PNG is 
 | `--n-processes` | Number of parallel processes for saving screenshots. Increase for higher compression rates. | ≥1 | `2` |
 | `--fps` | Target FPS for screen recording. Lower if screenshots fail to save fast enough. | ≥1 | `10` |
 | `--format` | Image format for screenshots. | `png`, `jpg`, `webp` | `png` |
+| `--monitor-spec` | Monitor to screenshot. Use index (1, 2, ...) or screen size as `width,height` to identify screen (e.g., `1920,1080`). | int or tuple | `1` |
 | `--compression` | PNG compression level. Higher = smaller files but slower saving. | 0-9 | `6` |
 | `--quality` | Quality for JPG/WEBP formats. Higher = better quality but larger files. | 0-100 | `95` |
 | `--downsample` | Downsample factor for screenshots. 1 = original size, 2 = half size, etc. | ≥1 | `1` |
