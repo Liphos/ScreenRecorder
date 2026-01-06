@@ -71,7 +71,7 @@ The datasets will be fused timewise in the oldest dataset. In each file, the dat
 WARNING: It is not meant to handle datasets that were launched in parallel as it only concatenates files.
 
 ### External tools
-If you need to recompress the images, I recommend using Nconvert(or Xnconvert) for its speed and efficiency. However it requires a license. For example to convert a dataset from png to webp and resize it, you can use the command:
+If you need to recompress the images, I recommend using XNconvert for very large dataset or Nconvert for its speed and efficiency. However it requires a license. For example to convert a dataset from png to webp and resize it, you can use the command:
 
 ```nconvert -out webp -resize 25% 25% -keepfiledate -q 85 -recurse -o ./<new_dataset>/%.webp ./<dataset>/*.png```
 
