@@ -40,7 +40,9 @@ def main(
                 max_screenshots=n_screenshots,
             )
             _ = screen_recorder.initialize()
-            screen_recorder.set_common_parameters(path_output=PATH_OUTPUT, print_results=verbose)
+            screen_recorder.set_common_parameters(
+                path_output=PATH_OUTPUT, print_results=verbose, continue_dataset=False
+            )
             screen_recorder.start()
             # Stop the screen recording
             while not screen_recorder.should_stop():
