@@ -18,7 +18,7 @@ def test_screen_recording():
         [
             ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6, max_screenshots=100),
         ],
-        path_output="./screenshots/test/",
+        path_output="./screenshots/test/ScreenRecording/",
         print_results=False,
     )
     manager.run_until_stop(timeout=100)
@@ -35,7 +35,7 @@ def test_screen_recording_webp():
                 format_image="webp",
             ),
         ],
-        path_output="./screenshots/test/",
+        path_output="./screenshots/test/ScreenRecording/",
         print_results=False,
     )
     manager.run_until_stop(timeout=100)
@@ -52,7 +52,7 @@ def test_screen_recording_jpg():
                 format_image="jpg",
             ),
         ],
-        path_output="./screenshots/test/",
+        path_output="./screenshots/test/ScreenRecording/",
         print_results=False,
     )
     manager.run_until_stop(timeout=100)
@@ -70,7 +70,7 @@ def test_screen_recording_downsample():
                 format_image="png",
             ),
         ],
-        path_output="./screenshots/test/",
+        path_output="./screenshots/test/ScreenRecording/",
         print_results=False,
     )
     manager.run_until_stop(timeout=100)
@@ -120,7 +120,35 @@ def test_combined_recording():
             StopRecording(),
             GamepadRecording(),
         ],
-        path_output="./screenshots/test/",
+        path_output="./screenshots/test/CombinedRecording/",
+        print_results=False,
+    )
+    manager.run_until_stop(timeout=10)
+
+
+def test_combined_recording_with_continuation():
+    manager = Manager(
+        [
+            ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6, max_screenshots=1000),
+            KeyboardRecording(),
+            MouseRecording(),
+            StopRecording(),
+            GamepadRecording(),
+        ],
+        path_output="./screenshots/test/CombinedRecording/",
+        print_results=False,
+    )
+    manager.run_until_stop(timeout=5)
+    # Continue the recording
+    manager = Manager(
+        [
+            ScreenRecording(n_processes=3, aimed_fps=10, compression_rate=6, max_screenshots=1000),
+            KeyboardRecording(),
+            MouseRecording(),
+            StopRecording(),
+            GamepadRecording(),
+        ],
+        path_output=manager.path_output,
         print_results=False,
     )
     manager.run_until_stop(timeout=10)
