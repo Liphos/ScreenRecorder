@@ -152,3 +152,4 @@ def test_combined_recording_with_continuation():
         print_results=False,
     )
     manager.run_until_stop(timeout=10)
+    assert manager.continue_dataset
