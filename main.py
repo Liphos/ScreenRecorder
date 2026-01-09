@@ -10,7 +10,7 @@ import warnings
 from abc import ABC, abstractmethod
 from multiprocessing import Process, Queue, Value
 from queue import Empty
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Type
 
 import mss
 import mss.tools
@@ -104,6 +104,7 @@ def _save(
     process_id: int,
     n_processes: int,
     format_image: str,
+    offset: int = 0,
     verbose: bool = False,
 ) -> None:
     """Process that saves the screenshots to the disk.
@@ -117,12 +118,13 @@ def _save(
         process_id (int): ID of the process.
         n_processes (int): Number of processes.
         format_image (str): Format to save the screenshots to. Use Pillow's available formats(eg: "png", "jpg", "webp").
+        offset (int): Offset to add to the file name. Used when concatenating datasets. Defaults to 0.
         verbose (bool, optional): Control how much information is printed. Useful for debugging. Defaults to False.
     """
 
     def save_to_disk(img: mss.screenshot.ScreenShot, number: int) -> None:
         """Save the screenshot to the disk."""
-        output = path_output + f"file_{number * n_processes + process_id}." + format_image
+        output = path_output + f"file_{number * n_processes + process_id + offset}." + format_image
         if format_image == "png" and downsample == 1:
             mss.tools.to_png(img.rgb, img.size, level=compression_rate, output=output)
         elif format_image == "png" and downsample != 1:
@@ -180,19 +182,27 @@ def _save(
 class Recorder(ABC):
     """Abstract class for all recorders."""
 
+    CREATES_DATA: bool = True  # Check if the recorder creates data. Used when fusing datasets.
+
     def __init__(self) -> None:
         self.verbose: bool
         self.path_output: str
         self.print_results: bool
+        self.continue_dataset: bool
         self.is_stopped: bool = False
         self.is_initialized: bool = False
 
     def set_common_parameters(
-        self, path_output: str, print_results: bool, verbose: bool = False
+        self,
+        path_output: str,
+        print_results: bool,
+        continue_dataset: bool,
+        verbose: bool = False,
     ) -> None:
         """Set parameters common to all recorders."""
         self.path_output = path_output
         self.print_results = print_results
+        self.continue_dataset = continue_dataset
         self.verbose = verbose
 
     def _initialize(self) -> Exception | None:
@@ -253,6 +263,8 @@ class Recorder(ABC):
 
 class ScreenRecording(Recorder):
     """Screen Recording class. It captures the screen and saves the screenshots to the disk with multiprocessing."""
+
+    CREATES_DATA: bool = True
 
     def __init__(
         self,
@@ -341,10 +353,23 @@ class ScreenRecording(Recorder):
                 return UnpluggedError("No screen found.")
         return None
 
+    def count_images(self, path_output: str) -> int:
+        """Count the number of images in the dataset."""
+        with open(os.path.join(path_output, "timestamps.txt"), "r", encoding="utf-8") as f:
+            read_lines = f.readlines()
+            timestamps_length = len(read_lines)
+            # The number of images is the number of lines in the timestamps file. The "New Dataset" lines are not counted.
+            images_count = timestamps_length - sum(
+                1 for line in read_lines if line.strip() == "NEW DATASET"
+            )
+        return images_count
+
     def _start(self) -> None:
         """Start the screen recording."""
         # 2 processes: one for grabbing and one for saving PNG files
         # grabing is in the main process
+        ## Add offset to the number of images to avoid overwriting the existing images if continuing a dataset.
+        offset = self.count_images(self.path_output) if self.continue_dataset else 0
         self._p_grab = Process(
             target=_grab,
             args=(
@@ -370,6 +395,7 @@ class ScreenRecording(Recorder):
                     id,
                     self.n_processes,
                     self.format_image,
+                    offset,
                     self.verbose,
                 ),
             )
@@ -428,12 +454,17 @@ class ScreenRecording(Recorder):
 
     def _save_timestamps(self, grab_log: Dict[str, Any]) -> None:
         """Save the timestamps of the screen recording to a file."""
-        with open(os.path.join(self.path_output, "timestamps.txt"), "w", encoding="utf-8") as f:
-            for incr, timestamp in enumerate(grab_log["timestamps"]):
-                if incr == len(grab_log["timestamps"]) - 1:
-                    f.write(f"{timestamp:.6f}")
-                else:
-                    f.write(f"{timestamp:.6f}\n")
+        if self.continue_dataset:
+            f = open(os.path.join(self.path_output, "timestamps.txt"), "a", encoding="utf-8")
+            f.write("\nNEW DATASET\n")
+        else:
+            f = open(os.path.join(self.path_output, "timestamps.txt"), "w", encoding="utf-8")
+        for incr, timestamp in enumerate(grab_log["timestamps"]):
+            if incr == len(grab_log["timestamps"]) - 1:
+                f.write(f"{timestamp:.6f}")
+            else:
+                f.write(f"{timestamp:.6f}\n")
+        f.close()
 
     def _get_logs(self, logs: List[Dict[str, Any]]) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
         saving_logs: List[Dict[str, Any]] = []
@@ -497,6 +528,8 @@ class ScreenRecording(Recorder):
 class KeyboardRecording(Recorder):
     """Keyboard Recording class. It captures the keyboard inputs and saves the data to a separate file."""
 
+    CREATES_DATA: bool = True
+
     def on_press(self, key: keyboard.KeyCode | keyboard.Key | None) -> None:
         """Called when pressing a key."""
         if key is None:
@@ -547,8 +580,19 @@ class KeyboardRecording(Recorder):
         self.keyboard_listener.join(timeout=10)
         if self.keyboard_listener.is_alive():
             warnings.warn("WARNING: Keyboard listener did not stop.")
-        with open(os.path.join(self.path_output, "keyboard_logs.json"), "w", encoding="utf-8") as f:
-            json.dump(self._action_logs, f)
+        if self.continue_dataset:
+            previous_logs = json.load(
+                open(os.path.join(self.path_output, "keyboard_logs.json"), "r", encoding="utf-8")
+            )
+            with open(
+                os.path.join(self.path_output, "keyboard_logs.json"), "w", encoding="utf-8"
+            ) as f:
+                json.dump(previous_logs + [{"NEW DATASET": None}] + self._action_logs, f)
+        else:
+            with open(
+                os.path.join(self.path_output, "keyboard_logs.json"), "w", encoding="utf-8"
+            ) as f:
+                json.dump(self._action_logs, f)
 
     @staticmethod
     def fuse_datasets(old_dataset_path: str, new_dataset_path: str) -> None:
@@ -566,6 +610,8 @@ class KeyboardRecording(Recorder):
 
 class MouseRecording(Recorder):
     """Mouse Recording class. It captures the mouse inputs and saves the data to a separate file."""
+
+    CREATES_DATA: bool = True
 
     def on_move(self, x: int, y: int):
         """Called when moving the mouse."""
@@ -625,8 +671,19 @@ class MouseRecording(Recorder):
         self.mouse_listener.join(timeout=10)
         if self.mouse_listener.is_alive():
             warnings.warn("WARNING: Mouse listener did not stop.")
-        with open(os.path.join(self.path_output, "mouse_logs.json"), "w", encoding="utf-8") as f:
-            json.dump(self._action_logs, f)
+        if self.continue_dataset:
+            previous_logs = json.load(
+                open(os.path.join(self.path_output, "mouse_logs.json"), "r", encoding="utf-8")
+            )
+            with open(
+                os.path.join(self.path_output, "mouse_logs.json"), "w", encoding="utf-8"
+            ) as f:
+                json.dump(previous_logs + [{"NEW DATASET": None}] + self._action_logs, f)
+        else:
+            with open(
+                os.path.join(self.path_output, "mouse_logs.json"), "w", encoding="utf-8"
+            ) as f:
+                json.dump(self._action_logs, f)
 
     @staticmethod
     def fuse_datasets(old_dataset_path: str, new_dataset_path: str) -> None:
@@ -647,6 +704,8 @@ class StopRecording(Recorder):
     Args:
         hotkey (str, optional): Hotkey to stop the recording. It follows the format of pynput. Defaults to "<ctrl>+<shift>+<esc>".
     """
+
+    CREATES_DATA: bool = False
 
     def __init__(self, hotkey: str = "<ctrl>+<shift>+<delete>") -> None:
         super().__init__()
@@ -678,6 +737,8 @@ class StopRecording(Recorder):
 
 class GamepadRecording(Recorder):
     """Gamepad Recording class. It captures the gamepad inputs and saves the data to a separate file."""
+
+    CREATES_DATA: bool = True
 
     def get_gamepad_inputs(self) -> None:
         """Thread that captures the gamepad inputs"""
@@ -745,8 +806,19 @@ class GamepadRecording(Recorder):
             warnings.warn("WARNING: Gamepad thread did not stop.")
         # Dump the action logs to a file
         time_to_save = time.perf_counter()
-        with open(os.path.join(self.path_output, "gamepad_logs.json"), "w", encoding="utf-8") as f:
-            json.dump(self._action_logs, f)
+        if self.continue_dataset:
+            previous_logs = json.load(
+                open(os.path.join(self.path_output, "gamepad_logs.json"), "r", encoding="utf-8")
+            )
+            with open(
+                os.path.join(self.path_output, "gamepad_logs.json"), "w", encoding="utf-8"
+            ) as f:
+                json.dump(previous_logs + [{"NEW DATASET": None}] + self._action_logs, f)
+        else:
+            with open(
+                os.path.join(self.path_output, "gamepad_logs.json"), "w", encoding="utf-8"
+            ) as f:
+                json.dump(self._action_logs, f)
         print(f"Time to save gamepad logs: {time.perf_counter() - time_to_save:.2f} seconds")
 
     def _should_stop(self) -> bool:
@@ -766,8 +838,56 @@ class GamepadRecording(Recorder):
         os.remove(os.path.join(new_dataset_path, "gamepad_logs.json"))
 
 
+def get_recorder_class_from_name(recorder_name: str) -> Type[Recorder]:
+    """Get the recorder class from the name."""
+    recorder_class_dict: Dict[str, Type[Recorder]] = {
+        "GamepadRecording": GamepadRecording,
+        "KeyboardRecording": KeyboardRecording,
+        "MouseRecording": MouseRecording,
+        "ScreenRecording": ScreenRecording,
+        "StopRecording": StopRecording,
+    }
+    if recorder_name not in recorder_class_dict:
+        raise ValueError(f"Invalid recorder name: {recorder_name}")
+    return recorder_class_dict[recorder_name]
+
+
 class Manager:
     """Manager class. It manages the different recorders and saves the data to the disk."""
+
+    @staticmethod
+    def is_dataset(path_output: str) -> bool:
+        """Check if the folder is a dataset."""
+        return os.path.exists(os.path.join(path_output, "dataset_info.txt"))
+
+    def check_compatibility(
+        self, previous_dataset_path: str, list_recorders_names: list[str]
+    ) -> None | Exception:
+        """Check if the new dataset is compatible with the previous dataset."""
+        with open(
+            os.path.join(previous_dataset_path, "dataset_info.txt"), "r", encoding="utf-8"
+        ) as f:
+            recorders_old = f.readlines()
+        timestamps_old, recorders_old_names = (
+            recorders_old[0].split(":")[1].strip(),
+            [recorder.strip() for recorder in recorders_old[1:]],
+        )
+        ## Check the recorders are the same except for the not important recorders
+        different_recorders = list(set(recorders_old_names) ^ set(list_recorders_names))
+        for recorder in different_recorders:
+            if get_recorder_class_from_name(recorder).CREATES_DATA:
+                return ValueError(
+                    f"The recorder {recorder} is not in one of the datasets. It is important and can't be absent when fusing."
+                )
+        all_recorders = list(set(recorders_old_names) | set(list_recorders_names))
+        # Change the dataset info for new recording
+        with open(
+            os.path.join(previous_dataset_path, "dataset_info.txt"), "w", encoding="utf-8"
+        ) as f:
+            f.write(f"Timestamp: {timestamps_old},{time.time()}\n")
+            for recorder in all_recorders:
+                f.write(recorder + "\n")
+        return None  # No error
 
     def __init__(
         self,
@@ -780,23 +900,34 @@ class Manager:
 
         Args:
             list_recorders (list[Recorder]): List of recorders to manage.
-            path_output (str, optional): Directory to save screenshots and data. Defaults to "./screenshots/".
+            path_output (str, optional): Directory to save screenshots and data. If the folder is a dataset, the new recording will be appended to the dataset. Defaults to "./screenshots/".
             print_results (bool, optional): Print the performance of the screen recording. Defaults to True.
             verbose (bool, optional): Control how much information is printed. Useful for debugging. Defaults to False.
         """
 
+        # Check if the output folder is a dataset.
+        self.continue_dataset = self.is_dataset(path_output)
+        if not self.continue_dataset:
+            # Create a subdirectory with the current date and tim
+            path_output = path_output + time.strftime("%Y-%m-%d_%H-%M-%S") + "/"
+
         # Save parameters
-        self.path_output = (
-            path_output + time.strftime("%Y-%m-%d_%H-%M-%S") + "/"
-        )  # Create a subdirectory with the current date and time
+        self.path_output = path_output
         self.print_results = print_results
         self.list_recorders = list_recorders
         self.verbose = verbose
         # Create the output directory
         os.makedirs(self.path_output, exist_ok=True)
         # Set parameters common to all recorders
+        if self.verbose and self.continue_dataset:
+            print(f"Continuing dataset at path: {self.path_output}")
         for recorder in list_recorders:
-            recorder.set_common_parameters(self.path_output, self.print_results, self.verbose)
+            recorder.set_common_parameters(
+                self.path_output,
+                self.print_results,
+                self.continue_dataset,
+                self.verbose,
+            )
         self.is_stopped = False  # Flag to check if stop() has been called
 
     def check_availability(self) -> List[Recorder]:
@@ -812,14 +943,28 @@ class Manager:
                     + "This recorder will not be used."
                 )
         return remaining_recorders
+
     def start(self) -> None:
         """Start the recording."""
+        # Check if the output folder is a dataset. If it is, check if the new recorders is compatible with the previous dataset.
         self.list_recorders = self.check_availability()
-        # Create a file to save config
-        with open(os.path.join(self.path_output, "dataset_info.txt"), "w", encoding="utf-8") as f:
-            f.write(f"Timestamp: {time.time()}\n")
-            for recorder in self.list_recorders:
-                f.write(recorder.__class__.__name__ + "\n")
+        if self.continue_dataset:
+            exception = self.check_compatibility(
+                self.path_output, [recorder.__class__.__name__ for recorder in self.list_recorders]
+            )
+            if exception is not None:
+                raise ValueError(
+                    f"The new recorders are not compatible with the previous dataset. Error: {exception}"
+                )
+        # If the output folder is not a dataset, create a new dataset.
+        else:
+            # Create a file to save config
+            with open(
+                os.path.join(self.path_output, "dataset_info.txt"), "w", encoding="utf-8"
+            ) as f:
+                f.write(f"Timestamp: {time.time()}\n")
+                for recorder in self.list_recorders:
+                    f.write(recorder.__class__.__name__ + "\n")
         # Start the recorders that are available
         for recorder in self.list_recorders:
             recorder.start()
