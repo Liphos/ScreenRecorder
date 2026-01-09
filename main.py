@@ -4,7 +4,6 @@ import argparse
 import ctypes
 import json
 import os
-import shutil
 import threading
 import time
 import warnings
@@ -18,6 +17,7 @@ import mss.tools
 from inputs import UnpluggedError, devices, get_gamepad
 from PIL import Image
 from pynput import keyboard, mouse
+from tqdm import tqdm
 
 
 def colorful_warning(message, category, filename, lineno, line=None) -> str:
@@ -485,9 +485,9 @@ class ScreenRecording(Recorder):
             for timestamp in timestamps_2:
                 f.write(timestamp)
         # Add the new images
-        for image in os.listdir(new_dataset_path):
+        for image in tqdm(os.listdir(new_dataset_path), desc="Moving images"):
             if image.endswith(".png") or image.endswith(".jpg") or image.endswith(".webp"):
-                shutil.move(
+                os.rename(
                     os.path.join(new_dataset_path, image),
                     os.path.join(
                         old_dataset_path,
