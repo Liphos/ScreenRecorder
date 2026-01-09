@@ -799,8 +799,8 @@ class Manager:
             recorder.set_common_parameters(self.path_output, self.print_results, self.verbose)
         self.is_stopped = False  # Flag to check if stop() has been called
 
-    def start(self) -> None:
-        # Check availability of all recorders and remove recorders that are not available
+    def check_availability(self) -> List[Recorder]:
+        """Check availability of all recorders and remove recorders that are not available."""
         remaining_recorders: List[Recorder] = []
         for recorder in self.list_recorders:
             exception = recorder.initialize()
@@ -811,7 +811,10 @@ class Manager:
                     f"WARNING: Recorder {recorder.__class__.__name__} is not available: {exception}"
                     + "This recorder will not be used."
                 )
-        self.list_recorders = remaining_recorders
+        return remaining_recorders
+    def start(self) -> None:
+        """Start the recording."""
+        self.list_recorders = self.check_availability()
         # Create a file to save config
         with open(os.path.join(self.path_output, "dataset_info.txt"), "w", encoding="utf-8") as f:
             f.write(f"Timestamp: {time.time()}\n")
