@@ -180,8 +180,6 @@ def _save(
 class Recorder(ABC):
     """Abstract class for all recorders."""
 
-    CREATES_DATA: bool = True  # Check if the recorder creates data. Used when fusing datasets.
-
     def __init__(self) -> None:
         self.verbose: bool
         self.path_output: str
@@ -255,8 +253,6 @@ class Recorder(ABC):
 
 class ScreenRecording(Recorder):
     """Screen Recording class. It captures the screen and saves the screenshots to the disk with multiprocessing."""
-
-    CREATES_DATA: bool = True
 
     def __init__(
         self,
@@ -501,8 +497,6 @@ class ScreenRecording(Recorder):
 class KeyboardRecording(Recorder):
     """Keyboard Recording class. It captures the keyboard inputs and saves the data to a separate file."""
 
-    CREATES_DATA: bool = True
-
     def on_press(self, key: keyboard.KeyCode | keyboard.Key | None) -> None:
         """Called when pressing a key."""
         if key is None:
@@ -572,8 +566,6 @@ class KeyboardRecording(Recorder):
 
 class MouseRecording(Recorder):
     """Mouse Recording class. It captures the mouse inputs and saves the data to a separate file."""
-
-    CREATES_DATA: bool = True
 
     def on_move(self, x: int, y: int):
         """Called when moving the mouse."""
@@ -656,8 +648,6 @@ class StopRecording(Recorder):
         hotkey (str, optional): Hotkey to stop the recording. It follows the format of pynput. Defaults to "<ctrl>+<shift>+<esc>".
     """
 
-    CREATES_DATA: bool = False
-
     def __init__(self, hotkey: str = "<ctrl>+<shift>+<delete>") -> None:
         super().__init__()
         self.hotkey_listener = keyboard.GlobalHotKeys(
@@ -688,8 +678,6 @@ class StopRecording(Recorder):
 
 class GamepadRecording(Recorder):
     """Gamepad Recording class. It captures the gamepad inputs and saves the data to a separate file."""
-
-    CREATES_DATA: bool = True
 
     def get_gamepad_inputs(self) -> None:
         """Thread that captures the gamepad inputs"""
