@@ -52,7 +52,7 @@ def fuse_two_datasets(folder_path_1: str, folder_path_2: str) -> None:
         folder_path_1, folder_path_2 = folder_path_2, folder_path_1
         lst_timestamps_1, lst_timestamps_2 = lst_timestamps_2, lst_timestamps_1
     ## Check the recorders are the same except for the not important recorders
-    different_recorders = list(set(recorders_1) - set(recorders_2))
+    different_recorders = list(set(recorders_1) ^ set(recorders_2))
     for recorder in different_recorders:
         if recorder not in NOT_IMPORTANT_RECORDER:
             raise ValueError(
