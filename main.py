@@ -587,7 +587,7 @@ class KeyboardRecording(Recorder):
             with open(
                 os.path.join(self.path_output, "keyboard_logs.json"), "w", encoding="utf-8"
             ) as f:
-                json.dump(previous_logs + [{"NEW DATASET": None}] + self._action_logs, f)
+                json.dump(previous_logs + [{"type": "NEW DATASET"}] + self._action_logs, f)
         else:
             with open(
                 os.path.join(self.path_output, "keyboard_logs.json"), "w", encoding="utf-8"
@@ -603,7 +603,7 @@ class KeyboardRecording(Recorder):
             json_logs_2 = json.load(f)
         # Fuse the datasets
         with open(os.path.join(old_dataset_path, "keyboard_logs.json"), "w", encoding="utf-8") as f:
-            json.dump(json_logs_1 + [{"NEW DATASET": None}] + json_logs_2, f)
+            json.dump(json_logs_1 + [{"type": "NEW DATASET"}] + json_logs_2, f)
         # Remove the old file
         os.remove(os.path.join(new_dataset_path, "keyboard_logs.json"))
 
@@ -678,7 +678,7 @@ class MouseRecording(Recorder):
             with open(
                 os.path.join(self.path_output, "mouse_logs.json"), "w", encoding="utf-8"
             ) as f:
-                json.dump(previous_logs + [{"NEW DATASET": None}] + self._action_logs, f)
+                json.dump(previous_logs + [{"type": "NEW DATASET"}] + self._action_logs, f)
         else:
             with open(
                 os.path.join(self.path_output, "mouse_logs.json"), "w", encoding="utf-8"
@@ -694,7 +694,7 @@ class MouseRecording(Recorder):
             json_logs_2 = json.load(f)
         # Fuse the datasets
         with open(os.path.join(old_dataset_path, "mouse_logs.json"), "w", encoding="utf-8") as f:
-            json.dump(json_logs_1 + [{"NEW DATASET": None}] + json_logs_2, f)
+            json.dump(json_logs_1 + [{"type": "NEW DATASET"}] + json_logs_2, f)
         # Remove the old file
         os.remove(os.path.join(new_dataset_path, "mouse_logs.json"))
 
@@ -813,7 +813,7 @@ class GamepadRecording(Recorder):
             with open(
                 os.path.join(self.path_output, "gamepad_logs.json"), "w", encoding="utf-8"
             ) as f:
-                json.dump(previous_logs + [{"NEW DATASET": None}] + self._action_logs, f)
+                json.dump(previous_logs + [{"type": "NEW DATASET"}] + self._action_logs, f)
         else:
             with open(
                 os.path.join(self.path_output, "gamepad_logs.json"), "w", encoding="utf-8"
@@ -833,7 +833,7 @@ class GamepadRecording(Recorder):
             json_logs_2 = json.load(f)
         # Fuse the datasets
         with open(os.path.join(old_dataset_path, "gamepad_logs.json"), "w", encoding="utf-8") as f:
-            json.dump(json_logs_1 + [{"NEW DATASET": None}] + json_logs_2, f)
+            json.dump(json_logs_1 + [{"type": "NEW DATASET"}] + json_logs_2, f)
         # Remove the old file
         os.remove(os.path.join(new_dataset_path, "gamepad_logs.json"))
 

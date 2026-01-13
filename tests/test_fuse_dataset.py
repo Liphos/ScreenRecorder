@@ -74,14 +74,14 @@ def test_fuse_datasets():
     if os.path.exists(os.path.join(folder_path, "gamepad_logs.json")):
         with open(os.path.join(folder_path, "gamepad_logs.json"), "r", encoding="utf-8") as f:
             gamepad_logs = json.load(f)
-            assert sum(1 for log in gamepad_logs if log == {"NEW DATASET": None}) == 2
+            assert sum(1 for log in gamepad_logs if log["type"] == "NEW DATASET") == 2
     # Check keyboard recording logs
     if os.path.exists(os.path.join(folder_path, "keyboard_logs.json")):
         with open(os.path.join(folder_path, "keyboard_logs.json"), "r", encoding="utf-8") as f:
             keyboard_logs = json.load(f)
-            assert sum(1 for log in keyboard_logs if log == {"NEW DATASET": None}) == 2
+            assert sum(1 for log in keyboard_logs if log["type"] == "NEW DATASET") == 2
     # Check mouse recording logs
     if os.path.exists(os.path.join(folder_path, "mouse_logs.json")):
         with open(os.path.join(folder_path, "mouse_logs.json"), "r", encoding="utf-8") as f:
             mouse_logs = json.load(f)
-            assert sum(1 for log in mouse_logs if log == {"NEW DATASET": None}) == 2
+            assert sum(1 for log in mouse_logs if log["type"] == "NEW DATASET") == 2
